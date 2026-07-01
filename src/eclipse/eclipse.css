@@ -1,0 +1,3350 @@
+/* ── Eclipse page layout ──────────────────────────── */
+
+.eclipse-page {
+  position: relative;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.eclipse-map {
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Left panel ───────────────────────────────────── */
+
+.left-panel {
+  position: absolute;
+  top: 3.5rem;
+  left: 1rem;
+  width: 300px;
+  background: #f9f9f7;
+  border: 1px solid #e0e0dc;
+  border-radius: 6px;
+  z-index: 10;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 0.875rem;
+  color: #1a1a1a;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  max-height: calc(100vh - 4rem);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #d0d0cc transparent;
+}
+
+.left-panel-event {
+  padding: 0.6rem 0.75rem 0.55rem;
+  border-bottom: 1px solid #e0e0dc;
+}
+
+.left-panel-event-name {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  line-height: 1.3;
+}
+
+.left-panel-event-date {
+  display: block;
+  font-size: 0.7rem;
+  color: #888;
+  margin-top: 0.1rem;
+}
+
+.left-panel-event-placeholder {
+  font-size: 0.78rem;
+  color: #aaa;
+}
+
+.lp-event-description {
+  padding: 10px 12px 12px;
+  border-bottom: 1px solid #e0e0dc;
+  background: #f4f4f1;
+}
+
+.lp-event-description-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 5px;
+  letter-spacing: 0.01em;
+}
+
+.lp-event-description-body {
+  font-size: 0.71rem;
+  color: #444;
+  line-height: 1.55;
+}
+
+.left-panel-hint {
+  font-size: 0.75rem;
+  color: #999;
+  margin: 0;
+  padding: 0.5rem 0.75rem 0.65rem;
+  line-height: 1.45;
+}
+
+/* ── Eclipse selector (trigger + dropdown, standalone mode) ─ */
+
+.eclipse-selector {
+  position: absolute;
+  top: 3.5rem;
+  left: 1rem;
+  z-index: 10;
+  width: 320px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 0.875rem;
+  color: #1a1a1a;
+}
+
+/* ── Eclipse embedded (inside left panel accordion) ── */
+
+.eclipse-embedded {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 0.875rem;
+  color: #1a1a1a;
+}
+
+.eclipse-kind-toggle.eclipse-kind-toggle--embedded {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  justify-content: center;
+  padding: 0.5rem 0.75rem;
+  gap: 0.5rem;
+}
+.eclipse-kind-toggle.eclipse-kind-toggle--embedded .eclipse-kind-btn:first-child {
+  border-right: none;
+}
+
+.eclipse-embedded .eclipse-filter-bar {
+  border-bottom: 1px solid #e0e0dc;
+}
+
+.eclipse-embedded .eclipse-panel-list {
+  max-height: 260px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #d0d0cc transparent;
+}
+
+.lp-section-body--flush {
+  padding: 0;
+}
+
+.iss-pass-select {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  margin-top: 0.4rem;
+}
+
+.iss-pass-label {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(3, 105, 161, 0.9);
+}
+
+.iss-pass-control {
+  height: 32px;
+  background: rgba(224, 242, 254, 0.96);
+  border-color: rgba(14, 165, 233, 0.55);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.iss-pass-control:disabled {
+  color: #777;
+  cursor: default;
+  background: #f0f0ee;
+  border-color: #e0e0dc;
+}
+
+.iss-pass-note {
+  font-size: 0.65rem;
+  color: #b45309;
+}
+
+.iss-pass-status {
+  font-size: 0.65rem;
+  color: #0369a1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.iss-pass-status--visible { color: #15803d; }
+.iss-pass-status--daylight { color: #b45309; }
+.iss-pass-status--not-sunlit { color: #64748b; }
+.iss-pass-status--stale-tle { color: #6d28d9; }
+
+/* Kind toggle (Solar / Lunar) */
+.eclipse-kind-toggle {
+  display: flex;
+  border: 1px solid #e0e0dc;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  flex-shrink: 0;
+}
+.eclipse-kind-btn {
+  background: #f9f9f7;
+  border: none;
+  padding: 0 0.7rem;
+  height: 36px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.78rem;
+  color: #555;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
+}
+.eclipse-kind-btn:not(:last-child) { border-right: 1px solid #e0e0dc; }
+.eclipse-kind-btn:hover { background: #f0f0ee; }
+.eclipse-kind-btn.is-active {
+  background: #1a1a1a;
+  color: #fff;
+}
+
+/* Trigger button */
+.eclipse-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: #f9f9f7;
+  border: 1px solid #e0e0dc;
+  border-radius: 6px;
+  padding: 0 0.65rem;
+  height: 36px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  font-family: inherit;
+  font-size: 0.8rem;
+  text-align: left;
+  transition: background 0.1s;
+}
+.eclipse-trigger:hover,
+.eclipse-trigger.is-open { background: #f0f0ee; }
+
+.eclipse-trigger-date {
+  flex: 1;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.eclipse-trigger-count {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  flex-shrink: 0;
+}
+
+.eclipse-trigger-saros {
+  font-size: 0.68rem;
+  color: #999;
+  flex-shrink: 0;
+}
+
+.eclipse-trigger-placeholder {
+  flex: 1;
+  color: #aaa;
+}
+
+.eclipse-trigger-caret {
+  font-size: 0.55rem;
+  color: #888;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* Dropdown panel */
+.eclipse-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  width: 100%;
+  background: #f9f9f7;
+  border: 1px solid #e0e0dc;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 9rem);
+}
+
+/* Filter bar */
+.eclipse-filter-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid #e0e0dc;
+}
+
+.eclipse-filter-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.eclipse-filter-label {
+  font-size: 0.58rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #999;
+}
+
+/* Type pill toggles */
+.eclipse-type-pills {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.eclipse-type-pill {
+  flex: 1;
+  background: #f0f0ee;
+  border: 1px solid #d8d8d4;
+  border-radius: 4px;
+  padding: 0.22rem 0.25rem;
+  font-size: 0.65rem;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  color: #5c5c5c;
+  transition: background 0.1s, color 0.1s;
+  white-space: nowrap;
+  text-align: center;
+}
+.eclipse-type-pill:hover:not(.is-on) { background: #e4e4e0; }
+.eclipse-type-pill.is-on { color: #f9f9f7; border-color: transparent; }
+.eclipse-type-pill--t.is-on { background: #1a1a1a; }
+.eclipse-type-pill--a.is-on { background: #d97706; }
+.eclipse-type-pill--h.is-on { background: #7c3aed; }
+.eclipse-type-pill--p.is-on { background: #6b7280; }
+.eclipse-type-pill--n.is-on { background: #6b7280; }
+
+/* Dual range slider */
+.rs-wrap { padding: 0.1rem 0 0; }
+
+.rs-area {
+  position: relative;
+  height: 16px;
+}
+
+.rs-track-bg {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #e0e0dc;
+  border-radius: 2px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.rs-track-fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: #1a1a1a;
+  border-radius: 2px;
+}
+
+.rs-thumb {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  transform: translateY(-50%);
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  pointer-events: none;
+}
+
+.rs-thumb::-webkit-slider-runnable-track { background: transparent; height: 3px; }
+.rs-thumb::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  pointer-events: all;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #f9f9f7;
+  border: 2px solid #1a1a1a;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+.rs-thumb::-moz-range-track { background: transparent; height: 3px; }
+.rs-thumb::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #f9f9f7;
+  border: 2px solid #1a1a1a;
+  cursor: pointer;
+  pointer-events: all;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+.rs-labels {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+}
+
+.rs-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  background: #f0f0ee;
+  border: 1px solid #d8d8d4;
+  border-radius: 4px;
+  padding: 0.15rem 0.3rem;
+}
+
+.rs-text-input {
+  width: 3.8em;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 0.68rem;
+  font-family: inherit;
+  color: #1a1a1a;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+.rs-text-input::-webkit-outer-spin-button,
+.rs-text-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+.rs-unit {
+  font-size: 0.62rem;
+  color: #888;
+}
+
+.rs-dash {
+  font-size: 0.68rem;
+  color: #aaa;
+  flex-shrink: 0;
+}
+
+.eclipse-filter-select {
+  background: #f0f0ee;
+  border: 1px solid #e0e0dc;
+  border-radius: 4px;
+  padding: 0.2rem 0.3rem;
+  font-size: 0.75rem;
+  font-family: inherit;
+  color: #1a1a1a;
+  outline: none;
+  width: 100%;
+  cursor: pointer;
+}
+.eclipse-filter-select:focus { border-color: #999; }
+
+/* Multi-check filter dropdown */
+.eclipse-filter-multi {
+  position: relative;
+}
+
+.eclipse-filter-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem;
+  width: 100%;
+  background: #f0f0ee;
+  border: 1px solid #e0e0dc;
+  border-radius: 4px;
+  padding: 0.2rem 0.3rem;
+  font-size: 0.75rem;
+  font-family: inherit;
+  color: #1a1a1a;
+  cursor: pointer;
+}
+.eclipse-filter-btn.is-open { border-color: #999; }
+
+.eclipse-filter-btn-label {
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.eclipse-filter-caret {
+  font-size: 0.5rem;
+  color: #888;
+  flex-shrink: 0;
+}
+
+.eclipse-filter-dropdown {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 0;
+  min-width: 140px;
+  background: #f9f9f7;
+  border: 1px solid #e0e0dc;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+  z-index: 200;
+  padding: 0.25rem 0;
+}
+
+.eclipse-filter-check-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.65rem;
+  cursor: pointer;
+  user-select: none;
+  width: 100%;
+  background: none;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+}
+.eclipse-filter-check-row:hover { background: #eaeae8; }
+
+.eclipse-filter-checkbox {
+  width: 13px;
+  height: 13px;
+  border: 1.5px solid #c8c8c4;
+  border-radius: 3px;
+  flex-shrink: 0;
+  cursor: pointer;
+  background: #fff;
+}
+.eclipse-filter-checkbox.is-checked {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M2 5l2.5 2.5L8 3' stroke='%23fff' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: 100%;
+}
+
+.eclipse-filter-check-label {
+  font-size: 0.75rem;
+  color: #1a1a1a;
+  cursor: pointer;
+}
+
+/* List header */
+.eclipse-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.25rem 0.6rem 0.2rem;
+  border-bottom: 1px solid #f0f0ee;
+}
+
+.eclipse-list-count {
+  font-size: 0.65rem;
+  color: #999;
+}
+
+.eclipse-list-clear {
+  background: none;
+  border: none;
+  font-size: 0.65rem;
+  font-family: inherit;
+  color: #888;
+  cursor: pointer;
+  padding: 0;
+}
+.eclipse-list-clear:hover { color: #1a1a1a; }
+
+/* Row checkbox indicator */
+.eclipse-row-check {
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid #c8c8c4;
+  border-radius: 3px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.eclipse-row-check.is-checked {
+  background: #f9f9f7;
+  border-color: #f9f9f7;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M2 5l2.5 2.5L8 3' stroke='%231a1a1a' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: 100%;
+}
+
+/* Search row */
+.eclipse-panel-search {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.6rem 0.4rem;
+  border-bottom: 1px solid #e0e0dc;
+}
+
+.eclipse-panel-search-icon {
+  font-size: 1rem;
+  color: #aaa;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.eclipse-panel-search-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 0.8rem;
+  font-family: inherit;
+  color: #1a1a1a;
+  min-width: 0;
+}
+.eclipse-panel-search-input::placeholder { color: #bbb; }
+
+.eclipse-panel-search-clear {
+  background: none;
+  border: none;
+  font-size: 0.65rem;
+  color: #aaa;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+.eclipse-panel-search-clear:hover { color: #1a1a1a; }
+
+/* Type filter pills */
+.eclipse-panel-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.5rem 0.6rem 0.4rem;
+  border-bottom: 1px solid #e0e0dc;
+}
+
+/* Saros + century nav row */
+.eclipse-panel-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid #e0e0dc;
+}
+
+.eclipse-saros-input {
+  width: 72px;
+  background: #f0f0ee;
+  border: 1px solid #e0e0dc;
+  border-radius: 4px;
+  padding: 0.2rem 0.4rem;
+  font-size: 0.75rem;
+  font-family: inherit;
+  color: #1a1a1a;
+  outline: none;
+  flex-shrink: 0;
+}
+.eclipse-saros-input:focus { border-color: #999; }
+.eclipse-saros-input::placeholder { color: #bbb; }
+
+/* Remove spin buttons */
+.eclipse-saros-input::-webkit-outer-spin-button,
+.eclipse-saros-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.eclipse-saros-input[type=number] { -moz-appearance: textfield; }
+
+.eclipse-century-nav {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+/* Eclipse list */
+.eclipse-panel-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 80px;
+}
+
+/* Type filter */
+.eclipse-browser-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.6rem 0.75rem 0.5rem;
+  border-bottom: 1px solid #e0e0dc;
+}
+
+.eclipse-type-btn {
+  background: none;
+  border: 1px solid #d0d0cc;
+  border-radius: 100px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.7rem;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  color: #5c5c5c;
+  transition: all 0.1s;
+}
+
+.eclipse-type-btn.is-on {
+  color: #f9f9f7;
+  border-color: transparent;
+}
+
+/* Type colors when active */
+.eclipse-type-btn:not([class*='-t-']):not([class*='-a-']):not([class*='-h-']):not([class*='-p-']).is-on {
+  background: #1a1a1a;
+}
+.eclipse-type-btn-t.is-on  { background: #1a1a1a; }
+.eclipse-type-btn-a.is-on  { background: #d97706; }
+.eclipse-type-btn-h.is-on  { background: #7c3aed; }
+.eclipse-type-btn-p.is-on  { background: #6b7280; }
+
+/* Century navigation */
+.eclipse-browser-century {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid #e0e0dc;
+}
+
+.eclipse-browser-nav {
+  background: none;
+  border: none;
+  padding: 0.15rem 0.35rem;
+  font-size: 0.6rem;
+  cursor: pointer;
+  color: #5c5c5c;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.eclipse-browser-nav:hover {
+  background: #e8e8e6;
+  color: #1a1a1a;
+}
+
+.eclipse-browser-century-label {
+  flex: 1;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #1a1a1a;
+}
+
+/* Eclipse list */
+.eclipse-browser-list {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 120px;
+  max-height: 380px;
+}
+
+.eclipse-browser-status {
+  padding: 0.75rem;
+  font-size: 0.8rem;
+  color: #888;
+  text-align: center;
+}
+
+.eclipse-browser-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.6rem;
+  cursor: pointer;
+  font-size: 0.75rem;
+  transition: background 0.07s;
+  width: 100%;
+  background: none;
+  border: none;
+  font-family: inherit;
+  color: inherit;
+  text-align: left;
+}
+
+.eclipse-browser-row:hover {
+  background: #eaeae8;
+}
+
+.eclipse-browser-row.is-selected {
+  background: #1a1a1a;
+  color: #f9f9f7;
+}
+
+.eclipse-type-badge {
+  font-size: 0.58rem;
+  font-weight: 700;
+  border-radius: 2px;
+  padding: 1px 3px;
+  text-align: center;
+  color: #f9f9f7;
+}
+
+.eclipse-type-t { background: #1a1a1a; }
+.eclipse-type-a { background: #d97706; }
+.eclipse-type-h { background: #7c3aed; }
+.eclipse-type-p { background: #9ca3af; color: #1a1a1a; }
+
+.eclipse-browser-row.is-selected .eclipse-type-badge {
+  opacity: 0.75;
+}
+
+.eclipse-browser-row-date {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.eclipse-browser-row-dur {
+  font-size: 0.68rem;
+  color: #888;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.eclipse-browser-row.is-selected .eclipse-browser-row-dur {
+  color: #aaa;
+}
+
+/* Controls section */
+.eclipse-browser-controls {
+  border-top: 1px solid #e0e0dc;
+  padding: 0.6rem 0.75rem 0.6rem;
+}
+
+/* ── Legacy control panel (kept for shared row/toggle styles) ─ */
+
+.eclipse-control {
+  position: absolute;
+  top: 3.5rem;
+  left: 1rem;
+  width: 220px;
+  background: #f9f9f7;
+  border: 1px solid #e0e0dc;
+  border-radius: 4px;
+  padding: 1rem;
+  z-index: 10;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 0.875rem;
+  color: #1a1a1a;
+}
+
+.eclipse-control-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-bottom: 0.875rem;
+}
+
+.eclipse-control-row:last-child {
+  margin-bottom: 0;
+}
+
+.eclipse-control-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: #5c5c5c;
+}
+
+.eclipse-select {
+  width: 100%;
+  background: none;
+  border: 1px solid #d0d0cc;
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.8rem;
+  font-family: inherit;
+  color: #1a1a1a;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235c5c5c'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 1.5rem;
+}
+
+.eclipse-select:focus {
+  outline: none;
+  border-color: #1a1a1a;
+}
+
+.eclipse-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.eclipse-toggle {
+  background: none;
+  border: 1px solid #d0d0cc;
+  border-radius: 100px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
+  font-family: inherit;
+  cursor: pointer;
+  color: #5c5c5c;
+  line-height: 1.4;
+  transition: all 0.1s;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.eclipse-toggle.is-on {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+  color: #f9f9f7;
+}
+
+.eclipse-toggle-spinner {
+  width: 8px;
+  height: 8px;
+  border: 1px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: eclipse-spin 0.6s linear infinite;
+}
+
+@keyframes eclipse-spin {
+  to { transform: rotate(360deg); }
+}
+
+.eclipse-play {
+  background: #1a1a1a;
+  color: #f9f9f7;
+  border: none;
+  border-radius: 4px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: background 0.1s;
+}
+
+.eclipse-play:hover {
+  background: #333;
+}
+
+.eclipse-countdown {
+  font-size: 0.78rem;
+  color: #5c5c5c;
+  margin-top: 0.25rem;
+}
+
+/* ── Sun widget ───────────────────────────────────── */
+
+.solar-disc-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.eclipse-sun-widget {
+  border-top: 1px solid #e0e0dc;
+  padding: 0.5rem 0.6rem 0.5rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.sun-widget-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.sun-widget-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.sun-widget-compass {
+  width: 80px;
+  height: 80px;
+  display: block;
+}
+
+.sun-widget-arc {
+  width: 160px;
+  height: 60px;
+  display: block;
+  margin-top: 10px;
+}
+
+.eclipse-sun-alt {
+  font-size: 0.65rem;
+  color: #5c5c5c;
+  margin-top: 0.2rem;
+  line-height: 1.3;
+  text-align: center;
+}
+
+.eclipse-sun-label {
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #888;
+  margin-bottom: 0.3rem;
+}
+
+/* ── Location panel (top-right) ──────────────────── */
+
+.location-panel {
+  position: absolute;
+  top: 3.5rem;
+  right: 1rem;
+  width: 280px;
+  background: #f9f9f7;
+  border: 1px solid #e0e0dc;
+  border-radius: 6px;
+  z-index: 10;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 0.875rem;
+  color: #1a1a1a;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  max-height: calc(100vh - 4rem);
+  overflow-y: auto;
+  overflow-x: visible;
+  scrollbar-width: thin;
+  scrollbar-color: #d0d0cc transparent;
+}
+
+.lp-search {
+  position: relative;
+  padding: 0.5rem;
+}
+
+.lp-search-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #f0f0ee;
+  border: 1px solid #e0e0dc;
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+}
+
+.lp-search-icon {
+  font-size: 1rem;
+  color: #888;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.lp-search-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 0.8rem;
+  font-family: inherit;
+  color: #1a1a1a;
+  min-width: 0;
+}
+
+.lp-search-input::placeholder { color: #aaa; }
+
+.lp-search-spinner {
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid #d0d0cc;
+  border-top-color: #5c5c5c;
+  border-radius: 50%;
+  animation: eclipse-spin 0.6s linear infinite;
+  flex-shrink: 0;
+}
+
+.lp-search-clear {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.7rem;
+  color: #888;
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.lp-search-clear:hover { color: #1a1a1a; }
+
+.lp-results {
+  position: absolute;
+  top: calc(100% - 0.5rem);
+  left: 0.5rem;
+  right: 0.5rem;
+  background: #f9f9f7;
+  border: 1px solid #d0d0cc;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  z-index: 100;
+  overflow: hidden;
+}
+
+.lp-result-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  width: 100%;
+  background: none;
+  border: none;
+  border-bottom: 1px solid #f0f0ee;
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.07s;
+}
+
+.lp-result-row:last-child { border-bottom: none; }
+.lp-result-row:hover { background: #eaeae8; }
+
+.lp-result-name {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.lp-result-context {
+  font-size: 0.68rem;
+  color: #888;
+}
+
+.lp-divider {
+  height: 1px;
+  background: #e0e0dc;
+}
+
+.lp-moon-section {
+  display: flex;
+  justify-content: center;
+  padding: 0.75rem 0 0.25rem;
+  border-bottom: 1px solid #e0e0dc;
+  margin-bottom: 0.25rem;
+}
+
+.lp-location-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem 0.3rem;
+}
+
+.lp-place-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.3;
+  flex: 1;
+  color: #1a1a1a;
+}
+
+.lp-close {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.75rem;
+  color: #888;
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 1;
+  margin-top: 1px;
+}
+
+.lp-close:hover { color: #1a1a1a; }
+
+.lp-out-of-path {
+  font-size: 0.75rem;
+  color: #888;
+  padding: 0 0.6rem 0.5rem;
+  margin: 0;
+}
+
+.lp-stars {
+  padding: 0.1rem 0.6rem 0.25rem;
+  font-size: 0.85rem;
+  color: #f0a500;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.lp-score-num {
+  font-size: 0.68rem;
+  color: #888;
+  font-family: inherit;
+}
+
+.lp-stats {
+  display: flex;
+  flex-direction: column;
+  padding: 0 0.6rem;
+  border-top: 1px solid #e0e0dc;
+}
+
+.lp-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.22rem 0;
+  border-bottom: 1px solid #f0f0ee;
+}
+
+.lp-stat:last-child { border-bottom: none; }
+
+.lp-stat-label {
+  font-size: 0.68rem;
+  color: #888;
+}
+
+.lp-stat-value {
+  font-size: 0.73rem;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.lp-cloud-years {
+  padding: 0.3rem 0.6rem 0.2rem;
+  border-top: 1px solid #e0e0dc;
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+
+.lp-cloud-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.lp-cloud-year {
+  font-size: 0.63rem;
+  color: #888;
+  width: 28px;
+  flex-shrink: 0;
+}
+
+.lp-cloud-track {
+  flex: 1;
+  height: 3px;
+  background: #e0e0dc;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.lp-cloud-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+.lp-cloud-pct {
+  font-size: 0.63rem;
+  color: #5c5c5c;
+  width: 26px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.lp-actions {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.4rem 0.6rem 0.5rem;
+  border-top: 1px solid #e0e0dc;
+}
+
+.lp-btn {
+  background: none;
+  border: 1px solid #d0d0cc;
+  border-radius: 4px;
+  padding: 0.22rem 0.5rem;
+  font-size: 0.72rem;
+  font-family: inherit;
+  cursor: pointer;
+  color: #1a1a1a;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  transition: border-color 0.1s;
+}
+
+.lp-btn:hover { border-color: #1a1a1a; }
+
+/* ── Location panel accordion sections ───────────── */
+
+.lp-sections {
+  border-top: 1px solid #e0e0dc;
+}
+
+.lp-section {
+  border-bottom: 1px solid #e0e0dc;
+}
+
+.lp-section:last-child { border-bottom: none; }
+
+.lp-section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0.5rem 0.65rem;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.1s;
+}
+
+.lp-section-toggle:hover { background: #f0f0ee; }
+
+.lp-section-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #5c5c5c;
+}
+
+.lp-section-caret {
+  font-size: 0.7rem;
+  color: #bbb;
+  transition: transform 0.15s;
+  line-height: 1;
+}
+
+.lp-section-caret.is-open { transform: rotate(180deg); }
+
+.lp-section-body {
+  padding: 0 0 0.5rem;
+}
+
+/* ── Score card (slide-up sheet) ──────────────────── */
+
+.eclipse-score-card {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #f9f9f7;
+  border-top: 1px solid #e0e0dc;
+  border-radius: 1rem 1rem 0 0;
+  padding: 1.25rem 1.5rem 2rem;
+  z-index: 20;
+  max-height: 55vh;
+  overflow-y: auto;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.eclipse-score-card.is-visible {
+  transform: translateY(0);
+}
+
+.eclipse-score-card-handle {
+  width: 36px;
+  height: 3px;
+  background: #d0d0cc;
+  border-radius: 2px;
+  margin: 0 auto 1rem;
+}
+
+.eclipse-score-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.eclipse-score-place {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  flex: 1;
+}
+
+.eclipse-score-close {
+  background: none;
+  border: 1px solid #d0d0cc;
+  border-radius: 4px;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  color: #5c5c5c;
+  flex-shrink: 0;
+}
+
+.eclipse-score-close:hover {
+  border-color: #1a1a1a;
+  color: #1a1a1a;
+}
+
+.eclipse-score-stars {
+  font-size: 1.1rem;
+  color: #f0a500;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
+}
+
+.eclipse-score-stars span {
+  color: #d0d0cc;
+}
+
+.eclipse-score-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 0.875rem;
+}
+
+.eclipse-score-stat {
+  border-top: 1px solid #e0e0dc;
+  padding-top: 0.5rem;
+}
+
+.eclipse-score-stat-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: #5c5c5c;
+  margin-bottom: 0.2rem;
+}
+
+.eclipse-score-stat-value {
+  font-size: 0.9rem;
+  color: #1a1a1a;
+  font-weight: 500;
+}
+
+.eclipse-score-stat-sub {
+  font-size: 0.75rem;
+  color: #5c5c5c;
+}
+
+.eclipse-out-of-path {
+  font-size: 0.875rem;
+  color: #5c5c5c;
+  padding: 0.5rem 0;
+  border-top: 1px solid #e0e0dc;
+}
+
+/* Cloud year breakdown */
+.eclipse-cloud-breakdown {
+  margin-bottom: 0.875rem;
+}
+
+.eclipse-cloud-year {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.75rem;
+}
+
+.eclipse-cloud-year-label {
+  width: 28px;
+  color: #5c5c5c;
+  flex-shrink: 0;
+}
+
+.eclipse-cloud-bar-track {
+  flex: 1;
+  height: 4px;
+  background: #e0e0dc;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.eclipse-cloud-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+.eclipse-cloud-bar-fill.low  { background: #22c55e; }
+.eclipse-cloud-bar-fill.mid  { background: #eab308; }
+.eclipse-cloud-bar-fill.high { background: #ef4444; }
+
+.eclipse-cloud-year-pct {
+  width: 28px;
+  text-align: right;
+  color: #1a1a1a;
+  flex-shrink: 0;
+}
+
+/* Score card actions */
+.eclipse-score-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e0e0dc;
+}
+
+.eclipse-btn {
+  background: none;
+  border: 1px solid #d0d0cc;
+  border-radius: 4px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  color: #1a1a1a;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  transition: border-color 0.1s;
+}
+
+.eclipse-btn:hover {
+  border-color: #1a1a1a;
+}
+
+/* ── Eclipse picker ───────────────────────────────── */
+
+.eclipse-picker {
+  position: relative;
+}
+
+.eclipse-picker-trigger {
+  width: 100%;
+  background: none;
+  border: 1px solid #d0d0cc;
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.8rem;
+  font-family: inherit;
+  color: #1a1a1a;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem;
+}
+
+.eclipse-picker-trigger:hover {
+  border-color: #1a1a1a;
+}
+
+.eclipse-picker-arrow {
+  font-size: 0.55rem;
+  color: #5c5c5c;
+  flex-shrink: 0;
+}
+
+.eclipse-picker-dropdown {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 0;
+  right: 0;
+  background: #f9f9f7;
+  border: 1px solid #d0d0cc;
+  border-radius: 4px;
+  max-height: 280px;
+  overflow-y: auto;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.10);
+}
+
+.eclipse-picker-decade {
+  padding: 0.3rem 0.5rem 0.15rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: #5c5c5c;
+  background: #f0f0ee;
+  position: sticky;
+  top: 0;
+}
+
+.eclipse-picker-item {
+  display: grid;
+  grid-template-columns: 16px 86px 1fr;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1.3;
+  transition: background 0.08s;
+}
+
+.eclipse-picker-item:hover {
+  background: #eaeae8;
+}
+
+.eclipse-picker-item.is-selected {
+  background: #1a1a1a;
+  color: #f9f9f7;
+}
+
+.eclipse-picker-type {
+  font-size: 0.6rem;
+  font-weight: 700;
+  background: #d0d0cc;
+  color: #1a1a1a;
+  border-radius: 2px;
+  padding: 1px 3px;
+  text-align: center;
+}
+
+.eclipse-picker-item.is-selected .eclipse-picker-type {
+  background: #444;
+  color: #f9f9f7;
+}
+
+.eclipse-picker-date {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.eclipse-picker-region {
+  color: #5c5c5c;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.7rem;
+}
+
+.eclipse-picker-item.is-selected .eclipse-picker-region {
+  color: #a0a0a0;
+}
+
+/* ── Sun direction indicator ──────────────────────── */
+
+.sun-ind {
+  position: absolute;
+  pointer-events: all;
+  cursor: pointer;
+  z-index: 5;
+}
+
+.moon-ind {
+  position: absolute;
+  pointer-events: all;
+  cursor: pointer;
+  z-index: 5;
+}
+
+.iss-ind {
+  position: absolute;
+  pointer-events: all;
+  cursor: pointer;
+  z-index: 5;
+}
+
+.sub-point-tip {
+  position: absolute;
+  top: -28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(20,20,20,0.88);
+  color: #fff;
+  font-size: 0.7rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  white-space: nowrap;
+  padding: 3px 8px;
+  border-radius: 4px;
+  pointer-events: none;
+  letter-spacing: 0.02em;
+}
+
+.sub-point-tip--moon {
+  background: rgba(30,40,60,0.88);
+}
+
+.sub-point-tip--iss {
+  background: rgba(12, 74, 110, 0.92);
+}
+
+.sun-ind-badge {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(251, 191, 36, 0.92);
+  border: 1.5px solid rgba(245, 158, 11, 0.85);
+  border-radius: 20px;
+  padding: 4px 6px 4px 5px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.22), 0 0 0 2px rgba(251, 191, 36, 0.2);
+  transform-origin: center center;
+}
+
+.moon-ind-badge {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(226, 232, 240, 0.92);
+  border: 1.5px solid rgba(148, 163, 184, 0.85);
+  border-radius: 20px;
+  padding: 4px 6px 4px 5px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.22), 0 0 0 2px rgba(226, 232, 240, 0.2);
+  transform-origin: center center;
+}
+
+.iss-ind-badge {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(224, 242, 254, 0.94);
+  border: 1.5px solid rgba(14, 165, 233, 0.85);
+  border-radius: 20px;
+  padding: 4px 6px 4px 5px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.22), 0 0 0 2px rgba(14, 165, 233, 0.15);
+  transform-origin: center center;
+}
+
+/* ── ISS satellite panel ──────────────────────────── */
+
+.iss-sat-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.iss-sat-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0.4rem 0.6rem 0.35rem;
+  border-bottom: 1px solid #e0e0dc;
+}
+
+.iss-sat-name {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #888;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+/* Pill rows — same look as .eclipse-type-pills */
+.iss-pill-row {
+  display: flex;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.iss-pill-row--sub {
+  padding: 0.4rem 0.6rem 0.35rem;
+  border-bottom: 1px solid #e0e0dc;
+}
+
+.iss-pill {
+  flex: 1;
+  background: #f0f0ee;
+  border: 1px solid #d8d8d4;
+  border-radius: 4px;
+  padding: 0.22rem 0.4rem;
+  font-size: 0.65rem;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  color: #5c5c5c;
+  transition: background 0.1s, color 0.1s;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.iss-pill:hover:not(.iss-pill--active) { background: #e4e4e0; }
+
+.iss-pill--active {
+  background: #1a1a1a;
+  border-color: transparent;
+  color: #f9f9f7;
+}
+
+/* ── ISS transit content ──────────────────────────── */
+
+.iss-transit-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.iss-radius-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid #e0e0dc;
+}
+
+.iss-radius-label {
+  font-size: 0.7rem;
+  color: #666;
+  flex-shrink: 0;
+}
+
+.iss-radius-input {
+  width: 52px;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  border: 1px solid #d8d8d4;
+  background: #f0f0ee;
+  color: #1a1a1a;
+  font-size: 0.72rem;
+  font-family: inherit;
+  outline: none;
+}
+
+.iss-radius-input:focus { border-color: #999; }
+
+/* Remove number spinner arrows */
+.iss-radius-input::-webkit-outer-spin-button,
+.iss-radius-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.iss-radius-input[type=number] { -moz-appearance: textfield; }
+
+.iss-unit-toggle {
+  display: flex;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid #d8d8d4;
+  background: #f0f0ee;
+}
+
+.iss-unit-toggle button {
+  padding: 0.2rem 0.45rem;
+  font-size: 0.65rem;
+  font-family: inherit;
+  border: none;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.iss-unit-toggle button:hover:not(.iss-unit--active) { background: #e4e4e0; }
+
+.iss-unit--active {
+  background: #1a1a1a !important;
+  color: #f9f9f7 !important;
+}
+
+.iss-transit-results {
+  display: flex;
+  flex-direction: column;
+}
+
+.iss-transit-location {
+  padding: 0.5rem 0.65rem 0.25rem;
+}
+
+.iss-transit-coords {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.35rem;
+}
+
+.iss-transit-coord-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+}
+
+.iss-transit-coord-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  width: 2rem;
+  flex-shrink: 0;
+}
+
+.iss-transit-coord-val {
+  font-variant-numeric: tabular-nums;
+  color: #1a1a1a;
+}
+
+.iss-transit-alt-input {
+  width: 5rem;
+  font-size: 0.8rem;
+  padding: 0.15rem 0.3rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+}
+
+.iss-transit-coord-unit {
+  font-size: 0.72rem;
+  color: #888;
+}
+
+.iss-transit-calc-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: calc(100% - 1.3rem);
+  margin: 0.1rem 0.65rem 0.65rem;
+  padding: 0.45rem 1rem;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.iss-transit-calc-btn:hover:not(:disabled) { background: #1d4ed8; }
+.iss-transit-calc-btn:disabled { background: #93c5fd; cursor: default; }
+
+.iss-transit-disclaimer {
+  font-size: 0.67rem;
+  color: #999;
+  padding: 0.2rem 0.6rem 0.2rem;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.iss-transit-note-obs {
+  font-size: 0.67rem;
+  color: #b45309;
+  padding: 0 0.6rem 0.35rem;
+}
+
+.iss-transit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid #e0e0dc;
+  gap: 10px;
+  width: 100%;
+  background: none;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  border-radius: 0;
+  transition: background 0.1s;
+}
+
+.iss-transit-row:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.iss-transit-row--approx {
+  opacity: 0.5;
+}
+
+.iss-transit-approx-badge {
+  font-size: 0.72rem;
+  color: #b45309;
+  flex-shrink: 0;
+}
+
+.iss-transit-visible-badge {
+  color: #15803d;
+  font-weight: 600;
+}
+
+.iss-transit-nearby-badge {
+  color: #6b7280;
+}
+
+.iss-transit-start-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0 2px;
+}
+
+.iss-transit-start-label {
+  font-size: 0.72rem;
+  color: #6b7280;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.iss-transit-start-val {
+  font-size: 0.72rem;
+  color: #374151;
+}
+
+.iss-transit-stale {
+  font-size: 0.72rem;
+  color: #b45309;
+  margin: 4px 0 0;
+  padding: 4px 8px;
+  background: #fef3c7;
+  border-radius: 4px;
+}
+
+.iss-transit-geo-btn {
+  margin-top: 6px;
+  width: 100%;
+  padding: 5px 10px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  color: #374151;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.iss-transit-geo-btn:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+.iss-transit-geo-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.iss-transit-geo-inline {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #2563eb;
+  cursor: pointer;
+  font-size: inherit;
+  text-decoration: underline;
+}
+
+.iss-transit-disc-icon {
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: block;
+}
+
+/* ── ISS status label ─────────────────────────────── */
+
+.iss-status-label {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(10, 10, 14, 0.82);
+  border-radius: 10px;
+  padding: 2px 7px 2px 5px;
+  font-size: 0.67rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  white-space: nowrap;
+  pointer-events: none;
+  letter-spacing: 0.03em;
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.iss-ind:hover .iss-status-label,
+.iss-ind.tip-open .iss-status-label {
+  opacity: 1;
+}
+
+.iss-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── ISS ring legend (sidebar) ────────────────────── */
+
+.iss-ring-legend {
+  padding: 0.4rem 0.6rem 0.5rem;
+  border-top: 1px solid #e0e0dc;
+}
+
+.iss-ring-legend-title {
+  font-size: 0.62rem;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 5px;
+}
+
+.iss-ring-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.7rem;
+  color: #666;
+  padding: 2px 0;
+}
+
+.iss-ring-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Pin markers ──────────────────────────────────── */
+
+.eclipse-pin {
+  width: 18px;
+  height: 18px;
+  border-radius: 50% 50% 50% 0;
+  background: #f0a500;
+  border: 2px solid #1a1a1a;
+  transform: rotate(-45deg);
+  cursor: pointer;
+}
+
+/* Greatest eclipse point */
+.eclipse-greatest-pin {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #f0a500;
+  border: 2px solid #1a1a1a;
+  box-shadow: 0 0 0 3px rgba(240, 165, 0, 0.3);
+  pointer-events: none;
+}
+
+/* Greatest duration point */
+.eclipse-duration-pin {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #7c3aed;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.3);
+  pointer-events: none;
+}
+
+/* ── Site nav link ────────────────────────────────── */
+
+/* (placed in global.css to cover guide pages too) */
+
+/* ── Responsive ───────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .eclipse-control {
+    width: calc(100% - 2rem);
+    top: 0.75rem;
+    left: 0.75rem;
+  }
+
+  .eclipse-sun-widget {
+    display: none;
+  }
+
+  .eclipse-score-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .eclipse-score-card {
+    padding: 1rem 1.25rem 1.5rem;
+  }
+}
+
+/* ── Sky Disc Widget (inline compact sky view) ─────── */
+
+.sky-disc-widget {
+  padding: 0.5rem 0.5rem 0.4rem;
+  border-top: 1px solid #e8e8e4;
+}
+
+.sky-disc-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.35rem;
+}
+
+.sky-disc-focus-btns {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.sky-focus-btn {
+  background: #f0f0ee;
+  border: 1px solid #d8d8d4;
+  border-radius: 4px;
+  padding: 1px 7px;
+  font-size: 0.7rem;
+  font-family: inherit;
+  color: #555;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+.sky-focus-btn:hover { background: #e4e4e0; }
+.sky-focus-btn.active {
+  background: #1a1a1a;
+  color: #fff;
+  border-color: #1a1a1a;
+}
+
+.sky-disc-expand {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  font-size: 0.85rem;
+  color: #888;
+  cursor: pointer;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.sky-disc-expand:hover { color: #1a1a1a; }
+
+.sky-disc-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* ── Sky View Panel (full panoramic) ───────────────── */
+
+.sky-view-panel {
+  position: fixed;
+  top: 3.5rem;
+  right: calc(280px + 1.5rem);
+  width: 620px;
+  background: #f9f9f7;
+  border: 1px solid #e0e0dc;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  overflow: hidden;
+  z-index: 50;
+}
+
+.sky-view-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  background: #f9f9f7;
+  border-bottom: 1px solid #e0e0dc;
+}
+
+.sky-view-title {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #1a1a1a;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.sky-view-status {
+  font-size: 0.7rem;
+  color: #92400e;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  margin-left: auto;
+}
+
+.sky-view-header .sky-disc-focus-btns {
+  margin-left: auto;
+}
+
+.sky-view-header .sky-focus-btn {
+  background: #f0f0ee;
+  border-color: #d8d8d4;
+  color: #555;
+}
+.sky-view-header .sky-focus-btn:hover { background: #e4e4e0; }
+.sky-view-header .sky-focus-btn.active {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+  color: #fff;
+}
+
+.sky-view-header .lp-close {
+  color: #888;
+  background: none;
+}
+.sky-view-header .lp-close:hover { color: #1a1a1a; }
+
+/* ── ISS observations (inside left panel accordion) ── */
+
+.iss-obs {
+  /* no padding — toggle spans full width */
+}
+
+.iss-obs-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0.6rem 0.75rem;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.1s;
+  border-radius: 6px;
+}
+
+.iss-obs-toggle:hover { background: #f0f0ee; }
+
+.iss-obs-title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #5c5c5c;
+}
+
+.iss-obs-toggle-right {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.iss-obs-count {
+  font-size: 0.68rem;
+  color: #888;
+}
+
+.iss-obs-none {
+  font-size: 0.68rem;
+  color: #bbb;
+  font-style: italic;
+}
+
+.iss-obs-caret {
+  font-size: 0.75rem;
+  color: #aaa;
+  transition: transform 0.15s;
+  line-height: 1;
+}
+
+.iss-obs-caret.is-open { transform: rotate(180deg); }
+
+/* ── ISS transit subsections ─────────────────────────────────────────────── */
+
+.iss-transit-sub {
+  border-top: 1px solid #2a2a2a;
+}
+
+.iss-transit-sub-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  gap: 0.5rem;
+}
+
+.iss-transit-sub-toggle:hover { background: rgba(255,255,255,0.04); }
+
+.iss-transit-sub-title {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #ccc;
+  text-align: left;
+}
+
+.iss-transit-sub-right {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.iss-transit-sub-body {
+  padding: 0 0.6rem 0.5rem;
+}
+
+.iss-transit-note {
+  font-size: 0.65rem;
+  color: #999;
+  font-style: italic;
+  margin: 0 0 0.4rem;
+}
+
+.iss-transit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem 0.6rem;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  border-bottom: 1px solid #e0e0dc;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  border-radius: 0;
+  transition: background 0.1s;
+}
+
+.iss-transit-row:hover { background: rgba(0, 0, 0, 0.04); }
+
+.iss-transit-row:last-child { border-bottom: none; }
+
+.iss-transit-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.iss-transit-disc-icon {
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: block;
+}
+
+.iss-obs-body {
+  padding: 0 0.75rem 0.65rem;
+}
+
+.iss-obs-warning {
+  font-size: 0.7rem;
+  color: #92400e;
+  margin: 0 0 0.5rem;
+  padding: 0.3rem 0.45rem;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 4px;
+}
+
+.iss-obs-empty {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  color: #999;
+  margin: 0;
+}
+
+.iss-obs-spinner {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid #d0d0cc;
+  border-top-color: #5c5c5c;
+  border-radius: 50%;
+  animation: eclipse-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+.iss-obs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.iss-obs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  background: none;
+  border: 1px solid #e8e8e4;
+  border-radius: 5px;
+  padding: 0.45rem 0.55rem;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.1s, border-color 0.1s;
+  color: inherit;
+}
+
+.iss-obs-row:hover {
+  background: #f0f0ee;
+  border-color: #d0d0cc;
+}
+
+.iss-obs-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.iss-obs-datetime {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.iss-obs-date {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  white-space: nowrap;
+}
+
+.iss-obs-time {
+  font-size: 0.7rem;
+  color: #888;
+  white-space: nowrap;
+}
+
+.iss-obs-path {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.68rem;
+  color: #888;
+}
+
+.iss-obs-dur {
+  color: #bbb;
+  font-size: 0.65rem;
+}
+
+.iss-obs-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
+  flex-shrink: 0;
+}
+
+.iss-obs-score {
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1;
+  min-width: 2ch;
+  text-align: right;
+}
+
+.iss-obs-score--high  { color: #16a34a; }
+.iss-obs-score--mid   { color: #d97706; }
+.iss-obs-score--low   { color: #dc2626; }
+.iss-obs-score--poor  { color: #bbb; }
+
+.iss-obs-elev {
+  font-size: 0.65rem;
+  color: #aaa;
+  white-space: nowrap;
+}
+
+/* ── Light pollution row in LocationPanel ──────────────────────────────────── */
+
+.lp-lp-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 12px 6px;
+  border-bottom: 1px solid #e0e0dc;
+  font-size: 0.78rem;
+}
+
+.lp-lp-label {
+  color: #666;
+  flex-shrink: 0;
+}
+
+.lp-lp-value {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 500;
+  color: #1a1a1a;
+  text-align: right;
+}
+
+.lp-lp-loading {
+  color: #aaa;
+  font-weight: 400;
+}
+
+.lp-lp-swatch {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1px solid rgba(0,0,0,0.15);
+  flex-shrink: 0;
+}
+
+/* ── Location info strip ───────────────────────────────────────────────────── */
+
+.lp-info-strip {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  border-bottom: 1px solid #e0e0dc;
+}
+
+.lp-info-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 7px 4px 8px;
+  gap: 3px;
+  text-align: center;
+}
+
+.lp-info-item + .lp-info-item {
+  border-left: 1px solid #e0e0dc;
+}
+
+.lp-info-label {
+  font-size: 0.62rem;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.lp-info-value {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+/* ── Bortle legend ─────────────────────────────────────────────────────────── */
+
+.bortle-legend {
+  position: absolute;
+  bottom: 36px;
+  left: 14px;
+  background: rgba(10, 14, 22, 0.82);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 5px;
+  padding: 6px 10px 5px;
+  z-index: 10;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  user-select: none;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+}
+
+.bortle-legend-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.5);
+  margin-bottom: 4px;
+}
+
+.bortle-legend-bar {
+  width: 160px;
+  height: 8px;
+  border-radius: 2px;
+  background: linear-gradient(to right,
+    rgb(4,8,18),              /* 1 — pristine dark sky */
+    rgb(8,18,42),             /* 2 */
+    rgb(18,36,56),            /* 3 */
+    rgb(28,50,52),            /* 4 */
+    rgb(50,60,38),            /* 5 */
+    rgb(90,72,34),            /* 6 */
+    rgb(142,108,46),          /* 7 */
+    rgb(192,155,82),          /* 8 */
+    rgb(232,208,148)          /* 9 — city core */
+  );
+}
+
+.bortle-legend-ticks {
+  display: flex;
+  justify-content: space-between;
+  width: 160px;
+  margin-top: 2px;
+}
+
+.bortle-legend-tick {
+  font-size: 8px;
+  color: rgba(255,255,255,0.45);
+  line-height: 1;
+  width: 0;
+  text-align: center;
+}
+
+.bortle-legend-ends {
+  display: flex;
+  justify-content: space-between;
+  width: 160px;
+  margin-top: 3px;
+}
+
+.bortle-legend-ends span {
+  font-size: 8px;
+  color: rgba(255,255,255,0.3);
+  line-height: 1;
+}
+
+.bortle-legend-ends span:nth-child(2) {
+  color: rgba(255,255,255,0.2);
+  font-style: italic;
+}
+
+/* ── Meteor Showers ────────────────────────────────────────────────────────── */
+
+.meteor-panel {
+  padding: 4px 0 2px;
+}
+
+.meteor-row {
+  display: block;
+  width: 100%;
+  padding: 7px 12px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  color: #e2e8f0;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+.meteor-row:hover      { background: rgba(255,255,255,0.05); }
+.meteor-row--active    { background: rgba(124,58,237,0.18); }
+.meteor-row:last-of-type { border-bottom: none; }
+
+.meteor-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.meteor-name {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.meteor-str {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: #a78bfa;
+  flex-shrink: 0;
+}
+
+.meteor-row-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.meteor-date {
+  font-size: 10px;
+  color: #64748b;
+}
+
+.meteor-days {
+  font-size: 10px;
+  color: #7dd3fc;
+}
+
+.meteor-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 12px 5px;
+  font-size: 10px;
+  color: #64748b;
+}
+
+.meteor-legend-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.meteor-legend-note {
+  margin-left: 4px;
+  color: #475569;
+  font-size: 9px;
+}
+
+/* ── Planetary Transits ──────────────────────────────────────────────────── */
+
+.transit-panel {
+  padding: 4px 0 2px;
+}
+
+.transit-filter-row {
+  padding: 6px 12px 4px;
+}
+
+.transit-row {
+  display: block;
+  width: 100%;
+  padding: 7px 12px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  color: #e2e8f0;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+.transit-row:hover { background: rgba(255,255,255,0.05); }
+.transit-row--active.transit-row--mercury { background: rgba(148,163,184,0.15); }
+.transit-row--active.transit-row--venus   { background: rgba(251,191,36,0.12); }
+.transit-row:last-of-type { border-bottom: none; }
+
+.transit-row-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.transit-planet-badge {
+  font-size: 14px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.transit-row--mercury .transit-planet-badge { color: #94a3b8; }
+.transit-row--venus   .transit-planet-badge { color: #fbbf24; }
+
+.transit-name {
+  font-size: 12px;
+  font-weight: 600;
+  flex: 1;
+}
+
+.transit-dur {
+  font-size: 10px;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.transit-row-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.transit-date {
+  font-size: 10px;
+  color: #64748b;
+}
+
+.transit-when {
+  font-size: 10px;
+  color: #7dd3fc;
+}
+
+.transit-note {
+  padding: 7px 12px 5px;
+  font-size: 9px;
+  color: #475569;
+}
+
+/* ── Conjunctions panel ──────────────────────────────────────────────────── */
+
+.conj-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 10px 4px;
+}
+
+.conj-pill {
+  flex: 0 0 auto;
+  background: #f0f0ee;
+  border: 1px solid #d8d8d4;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 0.62rem;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  color: #5c5c5c;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  white-space: nowrap;
+}
+.conj-pill:hover:not(.conj-pill--on) { background: #e4e4e0; }
+.conj-pill--on { color: #0f172a; }
+
+.conj-row {
+  cursor: pointer;
+}
+.conj-row:hover { background: rgba(255,255,255,0.05); }
+.conj-row--active { background: color-mix(in srgb, var(--planet-color, #94a3b8) 18%, transparent); }
+
+.conj-planet-name {
+  color: var(--planet-color, #e2e8f0);
+}
+
+.conj-vs-sun {
+  color: #475569;
+  font-size: 9px;
+}
+
+.conj-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+  width: 28px;
+}
+
+/* ── Orrery expand button (on the small widget) ─────────────────────────── */
+
+.orrery-expand-btn {
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  z-index: 11;
+  background: rgba(0,0,0,0.55);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 5px;
+  color: rgba(255,255,255,0.75);
+  font-size: 13px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  padding: 0;
+  line-height: 1;
+}
+.orrery-expand-btn:hover {
+  background: rgba(0,0,0,0.8);
+  color: #fff;
+}
+
+/* ── Orrery full-screen overlay ─────────────────────────────────────────── */
+
+.orrery-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0,0,0,0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.orrery-inner {
+  position: relative;
+  width: min(90vmin, 820px);
+  height: min(90vmin, 820px);
+  background: #080b12;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+}
+
+.orrery-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  flex-shrink: 0;
+}
+
+.orrery-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e2e8f0;
+  letter-spacing: 0.3px;
+}
+
+.orrery-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Dark-context override for eclipse-kind-toggle inside orrery header */
+.orrery-header-controls .eclipse-kind-toggle {
+  border-color: rgba(255,255,255,0.15);
+  box-shadow: none;
+}
+.orrery-header-controls .eclipse-kind-btn {
+  background: rgba(255,255,255,0.05);
+  color: #94a3b8;
+  height: 28px;
+  font-size: 0.72rem;
+}
+.orrery-header-controls .eclipse-kind-btn:not(:last-child) {
+  border-right-color: rgba(255,255,255,0.15);
+}
+.orrery-header-controls .eclipse-kind-btn:hover {
+  background: rgba(255,255,255,0.1);
+  color: #e2e8f0;
+}
+.orrery-header-controls .eclipse-kind-btn.is-active {
+  background: rgba(255,255,255,0.18);
+  color: #f1f5f9;
+}
+
+.orrery-zoom-btns {
+  display: flex;
+  gap: 2px;
+}
+
+.orrery-zoom-btn {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 4px;
+  color: #94a3b8;
+  font-size: 16px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.1s;
+  padding: 0;
+  line-height: 1;
+}
+.orrery-zoom-btn:hover { background: rgba(255,255,255,0.12); color: #e2e8f0; }
+
+.orrery-close-btn {
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: color 0.1s, background 0.1s;
+}
+.orrery-close-btn:hover { color: #e2e8f0; background: rgba(255,255,255,0.07); }
+
+.orrery-svg {
+  flex: 1;
+  display: block;
+  width: 100%;
+  cursor: grab;
+  touch-action: none;
+}
+.orrery-svg:active { cursor: grabbing; }
+
+.orrery-tooltip {
+  position: fixed;
+  z-index: 210;
+  pointer-events: none;
+  background: rgba(10,14,22,0.92);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  padding: 6px 10px;
+  min-width: 120px;
+}
+
+.orrery-tooltip-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin-bottom: 3px;
+}
+
+.orrery-tooltip-line {
+  font-size: 10px;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+.orrery-planet-info {
+  position: absolute;
+  bottom: 36px;
+  left: 14px;
+  background: rgba(10,14,22,0.9);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 10px 12px 8px;
+  min-width: 140px;
+}
+
+.orrery-planet-info-name {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.orrery-planet-info-row {
+  font-size: 10px;
+  color: #94a3b8;
+  line-height: 1.6;
+}
+
+.orrery-planet-info-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #475569;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+.orrery-planet-info-close:hover { color: #94a3b8; }
+
+.orrery-date {
+  position: absolute;
+  bottom: 10px;
+  right: 14px;
+  font-size: 10px;
+  color: rgba(255,255,255,0.3);
+  pointer-events: none;
+}
+
+/* ── Weather legends ─────────────────────────────── */
+
+.wx-legend-stack {
+  position: absolute;
+  bottom: 2.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.wx-legend {
+  background: rgba(10, 10, 18, 0.82);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  padding: 6px 10px 8px;
+  width: 280px;
+  backdrop-filter: blur(6px);
+}
+
+.wx-legend-label {
+  font-size: 0.65rem;
+  color: rgba(255,255,255,0.55);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 5px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.wx-legend-bar-wrap {
+  position: relative;
+}
+
+.wx-legend-bar {
+  height: 10px;
+  border-radius: 3px;
+  width: 100%;
+}
+
+.wx-legend-canvas {
+  width: 100%;
+  height: 12px;
+  border-radius: 3px;
+  display: block;
+}
+
+.wx-legend-unit {
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.7;
+}
+
+.wx-legend-ticks {
+  position: relative;
+  height: 14px;
+  margin-top: 2px;
+}
+
+.wx-legend-tick {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 0.6rem;
+  color: rgba(255,255,255,0.65);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  white-space: nowrap;
+}
+
+/* ── Hotel card ──────────────────────────────────── */
+
+.hotel-card {
+  position: absolute;
+  bottom: 2.5rem;
+  right: 1rem;
+  width: 300px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+  overflow: hidden;
+  z-index: 30;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.hotel-card-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: rgba(0,0,0,0.45);
+  border: none;
+  color: #fff;
+  font-size: 1.1rem;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  line-height: 1;
+}
+
+.hotel-card-photo-wrap {
+  width: 100%;
+  height: 170px;
+  overflow: hidden;
+}
+
+.hotel-card-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hotel-card-body {
+  padding: 12px 14px 14px;
+}
+
+.hotel-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.hotel-card-name {
+  font-size: 0.9rem;
+  font-weight: 650;
+  color: #111;
+  line-height: 1.3;
+}
+
+.hotel-stars { white-space: nowrap; }
+.hotel-star { color: #d1d5db; font-size: 0.75rem; }
+.hotel-star.filled { color: #f59e0b; }
+
+.hotel-card-address {
+  font-size: 0.72rem;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+
+.hotel-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.hotel-score-badge {
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hotel-score-word {
+  font-weight: 500;
+  font-size: 0.72rem;
+}
+
+.hotel-review-count {
+  font-size: 0.7rem;
+  color: #9ca3af;
+}
+
+.hotel-card-price {
+  margin-bottom: 12px;
+}
+
+.hotel-price-amount {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #111;
+}
+
+.hotel-price-label {
+  font-size: 0.7rem;
+  color: #6b7280;
+}
+
+.hotel-book-row {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.hotel-book-btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 9px 0;
+  border-radius: 6px;
+  text-decoration: none;
+  transition: filter 0.15s;
+}
+
+.hotel-book-btn:hover { filter: brightness(1.15); }
+
+.hotel-price-level {
+  font-size: 0.7rem;
+  color: #9ca3af;
+  background: #f3f4f6;
+  padding: 1px 6px;
+  border-radius: 3px;
+}

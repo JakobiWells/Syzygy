@@ -1,0 +1,11 @@
+name = "syzygy-weather-proxy"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+ALLOWED_ORIGIN = "https://jakobiwells.com"
+
+[env.production.vars]
+ALLOWED_ORIGIN = "https://jakobiwells.com"
+
+# OWM_KEY is set as a secret via: npx wrangler secret put OWM_KEY

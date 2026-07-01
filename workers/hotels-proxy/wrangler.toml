@@ -1,0 +1,16 @@
+name = "syzygy-hotels-proxy"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+ALLOWED_ORIGIN = "https://jakobiwells.com"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "syzygy-hotels"
+database_id = "55c70571-7e75-4a3c-b9db-838f7a531439"
+
+# Secrets set via wrangler:
+#   npx wrangler secret put GOOGLE_PLACES_KEY
+#   npx wrangler secret put CJ_BOOKING_AID
+#   npx wrangler secret put CJ_AIRBNB_AID

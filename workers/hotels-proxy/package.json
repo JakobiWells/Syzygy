@@ -1,0 +1,12 @@
+{
+  "name": "syzygy-hotels-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "secret:username": "wrangler secret put BOOKING_USERNAME",
+    "secret:password": "wrangler secret put BOOKING_PASSWORD",
+    "secret:aid": "wrangler secret put BOOKING_AID"
+  }
+}
