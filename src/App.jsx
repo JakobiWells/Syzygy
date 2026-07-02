@@ -1,41 +1,37 @@
-import { Component } from 'react'
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Home from './pages/Home'
 import Guide from './pages/Guide'
-import EclipsePage from './eclipse/EclipsePage'
+import ErrorBoundary from './components/ErrorBoundary'
 import { TimeProvider } from './time/TimeContext'
 import { OverlaysProvider } from './eclipse/OverlaysContext'
 
-class ErrorBoundary extends Component {
-  state = { error: null }
-  static getDerivedStateFromError(e) { return { error: e } }
-  componentDidCatch(error, info) {
-    console.error('[AppErrorBoundary]', error, info.componentStack)
-  }
-  render() {
-    if (this.state.error) {
-      return (
-        <div style={{ padding: '2rem', fontFamily: 'monospace', color: 'red' }}>
-          <strong>Caught error:</strong><br />
-          {this.state.error.message}<br /><br />
-          <pre style={{ fontSize: '0.75rem', whiteSpace: 'pre-wrap' }}>{this.state.error.stack}</pre>
-        </div>
-      )
-    }
-    return this.props.children
-  }
+// Lazy-loaded: pulls in mapbox-gl, turf, astronomy-engine, satellite.js and the
+// ISS TLE archive — none of which the guide pages need.
+const EclipsePage = lazy(() => import('./eclipse/EclipsePage'))
+
+function EclipseFallback() {
+  return (
+    <div style={{ display: 'grid', placeItems: 'center', height: '100vh', color: '#5c5c5c', fontSize: '0.9rem' }}>
+      Loading eclipse planner…
+    </div>
+  )
 }
 
 export default function App() {
   return (
     <BrowserRouter>
-      <ErrorBoundary>
+      <ErrorBoundary name="App">
         <TimeProvider>
         <OverlaysProvider>
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/guides/:slug" element={<Guide />} />
-            <Route path="/eclipse" element={<EclipsePage />} />
+            <Route path="/eclipse" element={
+              <Suspense fallback={<EclipseFallback />}>
+                <EclipsePage />
+              </Suspense>
+            } />
           </Routes>
         </OverlaysProvider>
         </TimeProvider>

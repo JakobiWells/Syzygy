@@ -869,8 +869,8 @@ export default function EclipsePage() {
 
   useEffect(() => {
     if (!mapLoaded || !map.current) return
-    applyLayerVisibility(map.current, { showPath: overlays.eclipsePath, showCenter: overlays.eclipseCenter }, eclipse?.type)
-  }, [overlays.eclipsePath, overlays.eclipseCenter, mapLoaded, eclipse?.type])
+    applyLayerVisibility(map.current, { showPath: overlays.eclipsePath, showCenter: overlays.eclipseCenter }, eclipse?.type, eclipse?.kind === 'lunar')
+  }, [overlays.eclipsePath, overlays.eclipseCenter, mapLoaded, eclipse?.type, eclipse?.kind])
 
   // ─── Greatest eclipse / duration marker visibility ───────────────────────
 

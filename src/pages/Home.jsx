@@ -30,9 +30,8 @@ export default function Home() {
         </div>
       </main>
 
-<footer className="home-footer">
+      <footer className="home-footer">
         <span>© {new Date().getFullYear()} Syzygy</span>
-        <a href="#">Twitter</a>
       </footer>
     </div>
   )
