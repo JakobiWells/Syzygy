@@ -23,7 +23,7 @@ import SunIndicator from './SunIndicator'
 import MoonIndicator from './MoonIndicator'
 import IssIndicator from './IssIndicator'
 import {
-  loadIssTle, getIssGroundTrackPhases, issPathGeoJSON,
+  loadIssTle, loadIssArchive, getIssGroundTrackPhases, issPathGeoJSON,
   getIssPosition, getIssVisibilityRadiusKm, getIssVisibilityStatus,
   ISS_LAUNCH_MS,
 } from './issEngine'
@@ -1009,7 +1009,7 @@ export default function EclipsePage() {
     if (simTime.getTime() < ISS_LAUNCH_MS) { clearAll(); return }
 
     let cancelled = false
-    loadIssTle().then(() => {
+    const draw = () => {
       if (cancelled || !map.current) return
 
       if (overlays.issPath) {
@@ -1039,7 +1039,12 @@ export default function EclipsePage() {
       } else {
         map.current.getSource('iss-visibility-source')?.setData(EMPTY_POLY)
       }
-    })
+    }
+
+    // Draw with live TLE as soon as it's ready; redraw once the historical
+    // archive arrives (no-op re-resolve after first load).
+    loadIssTle().then(draw)
+    loadIssArchive().then(draw)
 
     return () => { cancelled = true }
   }, [simTime, mapLoaded, overlays.issPath, overlays.issIndicator, scoreData?.lat, scoreData?.lng])

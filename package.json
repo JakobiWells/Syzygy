@@ -6,7 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy": "vite build && npx wrangler pages deploy dist",
+    "deploy": "vite build && npx wrangler pages deploy dist --project-name=syzygy --branch=production",
     "horizon": "node scripts/computeHorizon.mjs",
     "bortle": "python3 scripts/processBortle.py"
   },

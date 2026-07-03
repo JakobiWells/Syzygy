@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useSimTime } from '../time/TimeContext'
-import { findIssVisiblePasses, findIssSolarTransits, findIssLunarTransits, getIssTleAgeDays, getIssDataSource, loadIssTle } from './issEngine'
+import { findIssVisiblePasses, findIssSolarTransits, findIssLunarTransits, getIssTleAgeDays, getIssDataSource, loadIssTle, loadIssArchive } from './issEngine'
 import SunWidget from './SunWidget'
 import MoonWidget from './MoonWidget'
 import SolarDiscView from './SolarDiscView'
@@ -176,7 +176,10 @@ export function IssObservations({ lat, lng, onSelectPass }) {
     const nearCurrent = startTime.getTime() >= Date.now() - 7 * DAY_MS
     let cancelled = false
     setState({ loading: true, passes: [], tleAge: null, dataSource: null, loaded: false })
-    loadIssTle({ maxCacheMs: nearCurrent ? DAY_MS : 6 * 3600 * 1000 }).then(() => {
+    Promise.all([
+      loadIssTle({ maxCacheMs: nearCurrent ? DAY_MS : 6 * 3600 * 1000 }),
+      loadIssArchive(),
+    ]).then(() => {
       if (cancelled) return
       const passes = findIssVisiblePasses(lat, lng, {
         start: startTime,
@@ -419,7 +422,7 @@ function IssTransitContent({ lat, lng, onTransitPaths, onSelectTransit, onSelect
     cancelRef.current = () => { cancelled = true }
     setState({ loading: true, transits: [], loaded: false, calcTime: null })
     onTransitPaths?.(null)
-    loadIssTle({ maxCacheMs: DAY_MS }).then(() => {
+    Promise.all([loadIssTle({ maxCacheMs: DAY_MS }), loadIssArchive()]).then(() => {
       if (cancelled) return
       const opts = { start: searchStart, hoursAhead: 24 * 30, altM }
       const transits = type === 'solar'

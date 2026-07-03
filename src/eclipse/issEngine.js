@@ -13,7 +13,6 @@ import {
 } from 'satellite.js'
 import * as A from 'astronomy-engine'
 import SunCalc from 'suncalc'
-import ARCHIVE from './issArchive.json'
 
 // Zarya (first ISS module) launch date — no ISS data exists before this
 export const ISS_LAUNCH_MS = Date.UTC(1998, 10, 20) // 1998-11-20
@@ -70,9 +69,28 @@ async function fetchTleSource({ url, format }) {
   }
 }
 
+// Bumped whenever the underlying TLE data changes (live fetch, archive load).
+// Memo caches below include it so paused-clock results don't go stale.
+let dataVersion = 0
+
+// Historical TLE archive — loaded lazily so its ~950 KB doesn't block the
+// eclipse page. Until it arrives, getSatrecInfo falls back to the live TLE.
+let ARCHIVE = []
+let archivePromise = null
+
+export function loadIssArchive() {
+  if (!archivePromise) {
+    archivePromise = import('./issArchive.json')
+      .then(m => { ARCHIVE = m.default ?? m; dataVersion++ })
+      .catch(e => { console.warn('[issEngine] archive load failed:', e.message); archivePromise = null })
+  }
+  return archivePromise
+}
+
 /** Fetch (or refresh) live ISS TLE. Tries multiple sources; falls back to hardcoded TLE.
  *  maxCacheMs: how fresh the cached TLE must be before we skip a re-fetch (default 6 h). */
 export function loadIssTle({ maxCacheMs = CACHE_MS } = {}) {
+  loadIssArchive()   // kick off the archive fetch in parallel; never blocks
   const now = Date.now()
   if (liveSatrec && now - lastFetch < maxCacheMs) return Promise.resolve(liveSatrec)
   if (loadPromise) return loadPromise
@@ -83,13 +101,14 @@ export function loadIssTle({ maxCacheMs = CACHE_MS } = {}) {
         liveSatrec = await fetchTleSource(source)
         lastFetch  = Date.now()
         loadPromise = null
+        dataVersion++
         return liveSatrec
       } catch (e) {
         console.warn(`[issEngine] TLE source failed (${source.url}):`, e.name === 'AbortError' ? 'timeout' : e.message)
       }
     }
     console.warn('[issEngine] All TLE sources failed — using hardcoded fallback')
-    if (!liveSatrec) liveSatrec = parseTleText(FALLBACK_TLE)
+    if (!liveSatrec) { liveSatrec = parseTleText(FALLBACK_TLE); dataVersion++ }
     loadPromise = null
     return liveSatrec
   })()
@@ -201,17 +220,26 @@ function propagateEcf(date, rec) {
 
 // ── Exported position / look-angle functions ──────────────────────────────────
 
-/** Sub-satellite point [lng, lat] and altitude (km). Returns null if TLE not loaded or propagation fails. */
+/** Sub-satellite point [lng, lat] and altitude (km). Returns null if TLE not loaded or propagation fails.
+ *  Memoized on exact time — called several times per render pass with the same simTime. */
+let _posCache = null
+
 export function getIssPosition(date) {
+  const t = date.getTime()
+  if (_posCache && _posCache.t === t && _posCache.v === dataVersion) return _posCache.result
   const { rec } = getSatrecInfo(date)
-  if (!rec) return null
-  const pv = propagatePos(date, rec)
-  if (!pv) return null
-  const gd = eciToGeodetic(pv.position, gstime(date))
-  const lng = degreesLong(gd.longitude)
-  const lat = degreesLat(gd.latitude)
-  if (!isFinite(lng) || !isFinite(lat) || !isFinite(gd.height)) return null
-  return { lng, lat, altKm: gd.height }
+  let result = null
+  if (rec) {
+    const pv = propagatePos(date, rec)
+    if (pv) {
+      const gd = eciToGeodetic(pv.position, gstime(date))
+      const lng = degreesLong(gd.longitude)
+      const lat = degreesLat(gd.latitude)
+      if (isFinite(lng) && isFinite(lat) && isFinite(gd.height)) result = { lng, lat, altKm: gd.height }
+    }
+  }
+  _posCache = { t, result, v: dataVersion }
+  return result
 }
 
 /** Observer-relative ISS look angles. Returns altitude/elevation, azimuth, and range. */
@@ -260,18 +288,6 @@ export function getIssOrbitMinutes() {
   return recOrbitMinutes(liveSatrec)
 }
 
-function minutesSinceRecEpoch(date, rec) {
-  const jd = date.getTime() / 86400000 + 2440587.5
-  return (jd - rec.jdsatepoch) * 1440
-}
-
-function orbitWindowForRec(atDate, rec) {
-  const periodMin    = recOrbitMinutes(rec)
-  const phaseMin     = ((minutesSinceRecEpoch(atDate, rec) % periodMin) + periodMin) % periodMin
-  const orbitStartMs = atDate.getTime() - phaseMin * 60 * 1000
-  return { periodMin, phaseMin, startMs: orbitStartMs, endMs: orbitStartMs + periodMin * 60 * 1000 }
-}
-
 function splitAtAntimeridian(coords) {
   if (coords.length < 2) return coords.length ? [coords] : []
   const segments = []
@@ -290,25 +306,57 @@ function splitAtAntimeridian(coords) {
   return segments
 }
 
-/** Ground track split into past and future segments for the current orbital revolution. */
-export function getIssGroundTrackPhases(atDate, stepSec = 45) {
-  const { rec } = getSatrecInfo(atDate)
-  if (!rec) return { past: [], future: [] }
+// Ground-track point cache. Points are propagated on a globally aligned time
+// grid, so as the rolling window advances only the handful of newly exposed
+// grid points need an SGP4 propagation — everything else is a Map hit. This
+// turns the per-frame cost (while the sim clock plays) from ~370 propagations
+// into ~zero.
+const TRACK_STEP_SEC = 15
+const trackCache = new Map()   // `${satrecId}:${gridMs}` → [lng, lat] | null
 
-  const win  = orbitWindowForRec(atDate, rec)
-  const past = [], future = []
-  const steps = Math.ceil((win.periodMin * 60) / stepSec)
+function recId(rec) {
+  return `${rec.satnum}:${rec.jdsatepoch}`
+}
 
-  for (let i = 0; i <= steps; i++) {
-    const t   = new Date(Math.min(win.endMs, win.startMs + i * stepSec * 1000))
-    const pv  = propagatePos(t, rec)
-    if (!pv) continue
+function trackPointAt(gridMs, rec, id) {
+  const key = `${id}:${gridMs}`
+  if (trackCache.has(key)) return trackCache.get(key)
+  let coord = null
+  const t  = new Date(gridMs)
+  const pv = propagatePos(t, rec)
+  if (pv) {
     const gd  = eciToGeodetic(pv.position, gstime(t))
     const lng = degreesLong(gd.longitude)
     const lat = degreesLat(gd.latitude)
-    if (!isFinite(lng) || !isFinite(lat) || !isFinite(gd.height)) continue
-    const coord = [lng, lat]
-    if (t.getTime() <= atDate.getTime()) past.push(coord)
+    if (isFinite(lng) && isFinite(lat) && isFinite(gd.height)) coord = [lng, lat]
+  }
+  if (trackCache.size > 50000) trackCache.clear()
+  trackCache.set(key, coord)
+  return coord
+}
+
+/**
+ * Ground track split into past and future segments.
+ * Rolling window centered on `atDate` (half an orbit behind, half ahead) so the
+ * track is always connected through the current ISS position and never snaps
+ * when a revolution completes.
+ */
+export function getIssGroundTrackPhases(atDate, stepSec = TRACK_STEP_SEC) {
+  const { rec } = getSatrecInfo(atDate)
+  if (!rec) return { past: [], future: [] }
+
+  const id        = recId(rec)
+  const periodMs  = recOrbitMinutes(rec) * 60 * 1000
+  const stepMs    = stepSec * 1000
+  const t         = atDate.getTime()
+  const startMs   = Math.ceil((t - periodMs / 2) / stepMs) * stepMs   // grid-aligned
+  const endMs     = t + periodMs / 2
+
+  const past = [], future = []
+  for (let ms = startMs; ms <= endMs; ms += stepMs) {
+    const coord = trackPointAt(ms, rec, id)
+    if (!coord) continue
+    if (ms <= t) past.push(coord)
     else future.push(coord)
   }
 
@@ -376,7 +424,20 @@ function visibilityState(date, lat, lng, minElevDeg) {
   return { look, sunlit, dark, visible: Boolean(sunlit && dark) }
 }
 
+// Memoized on exact (time, lat, lng, minElev) — the map layer effect and the
+// IssIndicator both call this with identical args in the same render pass.
+let _visCache = null
+
 export function getIssVisibilityStatus(date, lat, lng, minElevDeg = 10) {
+  const t = date.getTime()
+  if (_visCache && _visCache.t === t && _visCache.lat === lat && _visCache.lng === lng && _visCache.minElevDeg === minElevDeg && _visCache.v === dataVersion)
+    return _visCache.result
+  const result = computeIssVisibilityStatus(date, lat, lng, minElevDeg)
+  _visCache = { t, lat, lng, minElevDeg, result, v: dataVersion }
+  return result
+}
+
+function computeIssVisibilityStatus(date, lat, lng, minElevDeg) {
   const pos = getIssPosition(date)
   if (!pos) return { status: 'unavailable', label: 'ISS position unavailable', pos: null }
 
