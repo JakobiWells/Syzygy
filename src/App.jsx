@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import Home from './pages/Home'
+import PersonalHome from './pages/PersonalHome'
+import Guides from './pages/Guides'
 import Guide from './pages/Guide'
 import ErrorBoundary from './components/ErrorBoundary'
 import { TimeProvider } from './time/TimeContext'
@@ -25,7 +26,8 @@ export default function App() {
         <TimeProvider>
         <OverlaysProvider>
           <Routes>
-            <Route path="/" element={<Home />} />
+            <Route path="/" element={<PersonalHome />} />
+            <Route path="/guides" element={<Guides />} />
             <Route path="/guides/:slug" element={<Guide />} />
             <Route path="/eclipse" element={
               <Suspense fallback={<EclipseFallback />}>

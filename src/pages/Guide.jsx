@@ -43,7 +43,7 @@ export default function Guide() {
   if (!guide) {
     return (
       <div className="not-found">
-        <p>Guide not found. <Link to="/">← Back home</Link></p>
+        <p>Guide not found. <Link to="/guides">← Back to guides</Link></p>
       </div>
     )
   }
@@ -53,11 +53,12 @@ export default function Guide() {
   return (
     <>
       <header className="site-header">
-        <Link to="/" className="site-header-link">
+        <Link to="/guides" className="site-header-link">
           <Logo size={42} />
-          <span>Syzygy</span>
+          <span>Guides</span>
         </Link>
         <nav className="site-nav">
+          <Link to="/" className="site-nav-link">Home</Link>
           <Link to="/eclipse" className="site-nav-link">Eclipse Planner</Link>
         </nav>
         {import.meta.env.DEV && (
