@@ -89,6 +89,12 @@
   z-index: 3;
 }
 
+/* Playhead outside the pinned-event window: hollow, clamped at the edge */
+.time-scrubber-thumb.is-offscale {
+  background: #f9f9f7;
+  border-color: #1a1a1a;
+}
+
 /* Event span bar (events with duration, when zoomed in enough) */
 .time-scrubber-span {
   position: absolute;

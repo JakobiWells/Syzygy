@@ -3,10 +3,11 @@ import { useSimTime } from './TimeContext'
 import { useEventPins } from '../eclipse/eventPins'
 
 // ── Adaptive domain ──────────────────────────────────────────────────────────
-// The scrubber covers the hull of all pinned events (plus padding). With no
-// pins it falls back to a window around the current sim time. If the playhead
-// wanders outside, the domain extends in 25%-of-span steps (hysteresis) so
-// tick labels don't slide continuously while playing.
+// The scrubber covers the hull of the pinned events only (plus symmetric
+// padding, so a single event sits centered). The playhead is NOT part of the
+// domain — when "now" falls outside the window the thumb clamps to the edge
+// and renders hollow. With no pins the domain falls back to a window around
+// the current sim time.
 
 const HOUR = 3600_000
 const DAY  = 86_400_000
@@ -119,8 +120,7 @@ export default function TimeScrubber() {
   const trackRef  = useRef(null)
   const dragging  = useRef(false)
 
-  // Domain with hysteresis: recompute on pin changes; extend stepwise if the
-  // playhead exits the current domain.
+  // Domain recomputes only when the pin set changes
   const domainRef  = useRef(null)
   const pinsSigRef = useRef('')
 
@@ -128,22 +128,13 @@ export default function TimeScrubber() {
   const pinsSig = pins.map(p => p.id).join(',')
 
   if (!domainRef.current || pinsSigRef.current !== pinsSig) {
-    const hull = pinHull(pins)
-    let [min, max] = hull ?? [nowMs - DEFAULT_SPAN / 2, nowMs + DEFAULT_SPAN / 2]
-    // Always include the playhead so you can scrub from "now" up to an event
-    if (nowMs < min) min = nowMs - (max - nowMs) * 0.05
-    if (nowMs > max) max = nowMs + (nowMs - min) * 0.05
-    domainRef.current = [min, max]
+    domainRef.current = pinHull(pins) ?? [nowMs - DEFAULT_SPAN / 2, nowMs + DEFAULT_SPAN / 2]
     pinsSigRef.current = pinsSig
-  } else {
-    const [min, max] = domainRef.current
-    const span = max - min
-    if (nowMs < min) domainRef.current = [nowMs - span * 0.25, max]
-    else if (nowMs > max) domainRef.current = [min, nowMs + span * 0.25]
   }
 
   const [msMin, msMax] = domainRef.current
   const msSpan = msMax - msMin
+  const offscale = nowMs < msMin || nowMs > msMax
 
   const msToFrac = useCallback(
     ms => Math.max(0, Math.min(1, (ms - msMin) / msSpan)),
@@ -226,8 +217,11 @@ export default function TimeScrubber() {
           >{p.icon}</button>
         ))}
 
-        {/* Thumb */}
-        <div className="time-scrubber-thumb" style={{ left: `${frac * 100}%` }} />
+        {/* Thumb (hollow when the playhead is outside the event window) */}
+        <div
+          className={`time-scrubber-thumb${offscale ? ' is-offscale' : ''}`}
+          style={{ left: `${frac * 100}%` }}
+        />
       </div>
     </div>
   )
