@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import * as A from 'astronomy-engine'
 import { useSimTime } from '../time/TimeContext'
+import { useEventPins, toEvent } from './eventPins'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -32,7 +33,7 @@ const OUTER = [
 ]
 
 // Compute N oppositions or conjunctions (targetRelLon=180 or 0) starting from startDate.
-function findEvents(type, targetRelLon, startDate, count) {
+export function findEvents(type, targetRelLon, startDate, count) {
   const results = []
   for (const planet of OUTER) {
     try {
@@ -78,10 +79,12 @@ function PlanetFilter({ selected, onToggle }) {
 
 // ── Shared event list ────────────────────────────────────────────────────────
 
-function EventList({ events, selected, onSelect, simTime, emptyMsg }) {
+function EventList({ events, kind, simTime, emptyMsg }) {
+  const { isPinned, togglePin } = useEventPins()
   if (events.length === 0) return <div className="eclipse-browser-status">{emptyMsg}</div>
   return events.map(e => {
-    const active = selected?.id === e.id
+    const evt    = toEvent(kind, e)
+    const active = isPinned(evt.id)
     const label  = timeLabel(e.date, simTime)
     const color  = PLANET_COLOR[e.planet] ?? '#94a3b8'
     return (
@@ -89,7 +92,7 @@ function EventList({ events, selected, onSelect, simTime, emptyMsg }) {
         key={e.id}
         className={`transit-row conj-row${active ? ' conj-row--active' : ''}`}
         style={{ '--planet-color': color }}
-        onClick={() => onSelect(active ? null : e)}
+        onClick={() => togglePin(evt)}
       >
         <div className="transit-row-top">
           <span className="transit-name conj-planet-name">{e.planet}</span>
@@ -106,25 +109,25 @@ function EventList({ events, selected, onSelect, simTime, emptyMsg }) {
 
 // ── Oppositions Panel ────────────────────────────────────────────────────────
 
-export function OppositionsPanel({ onSelect, selected }) {
+function useUpcomingEvents(type, targetRelLon) {
+  // Anchor to the real-world clock (not the moving sim time) so the list
+  // never reshuffles underneath a selection.
+  const anchor = useMemo(() => new Date(), [])
+  return useMemo(() => {
+    const start = new Date(Date.UTC(anchor.getUTCFullYear() - 1, 0, 1))
+    return findEvents(type, targetRelLon, start, 12)
+  }, [anchor, type, targetRelLon])
+}
+
+export function OppositionsPanel() {
   const { simTime } = useSimTime()
   const [planetFilter, setPlanetFilter] = useState(new Set())
+  const events = useUpcomingEvents('opposition', 180)
 
-  // Recompute when simTime moves by more than ~5 years
-  const epochKey = Math.floor(simTime.getFullYear() / 5)
-  const events = useMemo(() => {
-    const start = new Date(Date.UTC(simTime.getFullYear() - 1, 0, 1))
-    return findEvents('opposition', 180, start, 12)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [epochKey])
-
-  const visible = useMemo(() => {
-    const cutoff = new Date(simTime.getTime() - 365 * 86400000)
-    return events.filter(e =>
-      e.date >= cutoff &&
-      (planetFilter.size === 0 || planetFilter.has(e.planet))
-    ).slice(0, 30)
-  }, [events, simTime, planetFilter])
+  const visible = useMemo(() =>
+    events.filter(e => planetFilter.size === 0 || planetFilter.has(e.planet)).slice(0, 30),
+    [events, planetFilter]
+  )
 
   function togglePlanet(p) {
     setPlanetFilter(prev => { const s = new Set(prev); s.has(p) ? s.delete(p) : s.add(p); return s })
@@ -133,7 +136,7 @@ export function OppositionsPanel({ onSelect, selected }) {
   return (
     <div className="transit-panel">
       <PlanetFilter selected={planetFilter} onToggle={togglePlanet} />
-      <EventList events={visible} selected={selected} onSelect={onSelect} simTime={simTime} emptyMsg="No oppositions found" />
+      <EventList events={visible} kind="opposition" simTime={simTime} emptyMsg="No oppositions found" />
       <div className="transit-note">Planet opposite Sun · best for viewing</div>
     </div>
   )
@@ -141,24 +144,15 @@ export function OppositionsPanel({ onSelect, selected }) {
 
 // ── Conjunctions Panel ───────────────────────────────────────────────────────
 
-export default function ConjunctionsPanel({ onSelect, selected }) {
+export default function ConjunctionsPanel() {
   const { simTime } = useSimTime()
   const [planetFilter, setPlanetFilter] = useState(new Set())
+  const events = useUpcomingEvents('conjunction', 0)
 
-  const epochKey = Math.floor(simTime.getFullYear() / 5)
-  const events = useMemo(() => {
-    const start = new Date(Date.UTC(simTime.getFullYear() - 1, 0, 1))
-    return findEvents('conjunction', 0, start, 12)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [epochKey])
-
-  const visible = useMemo(() => {
-    const cutoff = new Date(simTime.getTime() - 365 * 86400000)
-    return events.filter(e =>
-      e.date >= cutoff &&
-      (planetFilter.size === 0 || planetFilter.has(e.planet))
-    ).slice(0, 30)
-  }, [events, simTime, planetFilter])
+  const visible = useMemo(() =>
+    events.filter(e => planetFilter.size === 0 || planetFilter.has(e.planet)).slice(0, 30),
+    [events, planetFilter]
+  )
 
   function togglePlanet(p) {
     setPlanetFilter(prev => { const s = new Set(prev); s.has(p) ? s.delete(p) : s.add(p); return s })
@@ -167,7 +161,7 @@ export default function ConjunctionsPanel({ onSelect, selected }) {
   return (
     <div className="transit-panel">
       <PlanetFilter selected={planetFilter} onToggle={togglePlanet} />
-      <EventList events={visible} selected={selected} onSelect={onSelect} simTime={simTime} emptyMsg="No conjunctions found" />
+      <EventList events={visible} kind="conjunction" simTime={simTime} emptyMsg="No conjunctions found" />
       <div className="transit-note">Planet near Sun · difficult to observe</div>
     </div>
   )

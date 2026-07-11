@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import { useEventPins, toEvent } from './eventPins'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -124,12 +125,10 @@ export default function EclipseBrowser({
   lunarCatalog,
   loading,
   lunarLoading,
-  initialCat,
-  onSelect,
   embedded = false,
 }) {
+  const { pins, focusId, togglePin } = useEventPins()
   const [kind, setKind]               = useState('solar')
-  const [selectedCat, setSelectedCat] = useState(null)
   const [typeFilters, setTypeFilters] = useState(new Set(['T']))
   const [durRange, setDurRange]       = useState([0, DUR_CFG.solar.max])
   const [yearRange, setYearRange]     = useState([2000, 2100])
@@ -141,38 +140,15 @@ export default function EclipseBrowser({
 
   const wrapRef        = useRef(null)
   const selectedRowRef = useRef(null)
-  const onSelectRef    = useRef(onSelect)
-  onSelectRef.current  = onSelect
 
-  // Auto-select on catalog load
-  useEffect(() => {
-    if (!catalog || selectedCat !== null) return
-    let targetCat = null
-    if (initialCat != null && catalog.find(e => e.cat === initialCat)) {
-      targetCat = initialCat
-    }
-    if (targetCat == null) {
-      const today = new Date().toISOString().slice(0, 10)
-      const upcoming = catalog.find(e => e.date >= today && 'TH'.includes(e.type?.[0]))
-        || catalog.find(e => e.date >= today && e.centerLine)
-        || catalog.find(e => e.type?.[0] === 'T')
-      if (upcoming) targetCat = upcoming.cat
-    }
-    if (targetCat != null) setSelectedCat(targetCat)
-  }, [catalog])
+  const pinnedIds = useMemo(() => new Set(pins.map(p => p.id)), [pins])
+  const rowId = e => `${e.kind === 'lunar' ? 'le' : 'se'}-${e.cat}`
 
   // Reset filters when switching kind
   useEffect(() => {
     setTypeFilters(new Set(['T']))
     setDurRange([0, DUR_CFG[kind].max])
   }, [kind])
-
-  // Notify parent when selection changes
-  useEffect(() => {
-    if (!activeCatalog || selectedCat == null) return
-    const e = activeCatalog.find(e => e.cat === selectedCat)
-    if (e) onSelectRef.current(e)
-  }, [selectedCat, activeCatalog])
 
   function toggleType(val) {
     setTypeFilters(prev => {
@@ -219,7 +195,8 @@ export default function EclipseBrowser({
     if (open) setTimeout(() => selectedRowRef.current?.scrollIntoView({ block: 'nearest' }), 50)
   }, [open])
 
-  const selectedEclipse = activeCatalog?.find(e => e.cat === selectedCat)
+  const focusedEclipsePin = pins.find(p => p.id === focusId && p.kind === 'eclipse')
+  const selectedEclipse = focusedEclipsePin?.payload ?? null
 
   const panelContent = (
     <>
@@ -227,11 +204,11 @@ export default function EclipseBrowser({
       <div className={embedded ? 'eclipse-kind-toggle eclipse-kind-toggle--embedded' : 'eclipse-kind-toggle'}>
         <button
           className={`eclipse-kind-btn${kind === 'solar' ? ' is-active' : ''}`}
-          onClick={() => { setKind('solar'); setSelectedCat(null) }}
+          onClick={() => setKind('solar')}
         >☀ Solar</button>
         <button
           className={`eclipse-kind-btn${kind === 'lunar' ? ' is-active' : ''}`}
-          onClick={() => { setKind('lunar'); setSelectedCat(null) }}
+          onClick={() => setKind('lunar')}
         >☽ Lunar</button>
       </div>
 
@@ -290,14 +267,15 @@ export default function EclipseBrowser({
         )}
         {shown.map(e => {
           const fam = typeFamily(e.type)
-          const isSelected = e.cat === selectedCat
+          const id = rowId(e)
+          const isPinnedRow = pinnedIds.has(id)
           return (
             <button
               key={e.cat}
-              ref={isSelected ? selectedRowRef : null}
-              className={`eclipse-browser-row${isSelected ? ' is-selected' : ''}`}
+              ref={id === focusId ? selectedRowRef : null}
+              className={`eclipse-browser-row${isPinnedRow ? ' is-selected' : ''}`}
               onClick={() => {
-                setSelectedCat(e.cat)
+                togglePin(toEvent('eclipse', e))
                 if (!embedded) setOpen(false)
               }}
             >

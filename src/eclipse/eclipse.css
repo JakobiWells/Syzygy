@@ -1294,6 +1294,124 @@
 
 .lp-btn:hover { border-color: #1a1a1a; }
 
+/* ── Pinned events list ──────────────────────────── */
+
+.lp-pins {
+  padding: 0.25rem 0;
+}
+
+.lp-pins-empty {
+  padding: 0.6rem 0.75rem;
+  font-size: 0.72rem;
+  color: #999;
+}
+
+.lp-pin-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem 0.4rem 0.75rem;
+  cursor: pointer;
+  transition: background 0.07s;
+}
+.lp-pin-row:hover { background: #eaeae8; }
+.lp-pin-row.is-focused {
+  background: #1a1a1a;
+  color: #f9f9f7;
+}
+
+.lp-pin-icon {
+  font-size: 0.85rem;
+  line-height: 1;
+  flex-shrink: 0;
+  width: 1.1em;
+  text-align: center;
+}
+
+.lp-pin-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.lp-pin-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lp-pin-date {
+  font-size: 0.65rem;
+  color: #888;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lp-pin-row.is-focused .lp-pin-date { color: #aaa; }
+
+.lp-pin-btn {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #999;
+  font-family: inherit;
+  transition: background 0.1s, color 0.1s;
+}
+.lp-pin-btn:hover { background: rgba(0,0,0,0.08); color: #1a1a1a; }
+.lp-pin-row.is-focused .lp-pin-btn { color: #aaa; }
+.lp-pin-row.is-focused .lp-pin-btn:hover { background: rgba(255,255,255,0.15); color: #f9f9f7; }
+
+.lp-pin-jump { font-size: 0.6rem; }
+.lp-pin-remove { font-size: 0.9rem; line-height: 1; }
+
+/* ── Add event button ────────────────────────────── */
+
+.lp-add-event {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: calc(100% - 1.5rem);
+  margin: 0.25rem 0.75rem 0.6rem;
+  padding: 0.4rem 0;
+  background: #f0f0ee;
+  border: 1px dashed #c9c9c5;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #5c5c5c;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+}
+.lp-add-event:hover {
+  background: #e8e8e6;
+  border-color: #1a1a1a;
+  color: #1a1a1a;
+}
+.lp-add-event.is-open {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+  border-style: solid;
+  color: #f9f9f7;
+}
+
+.lp-add-event-plus {
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
 /* ── Location panel accordion sections ───────────── */
 
 .lp-sections {

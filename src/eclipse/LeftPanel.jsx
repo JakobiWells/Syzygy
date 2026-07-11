@@ -1,25 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import EclipseBrowser from './EclipseBrowser'
 import { IssSatellitePanel } from './LocationPanel'
 import MeteorShowerPanel from './MeteorShowers'
-import PlanetaryTransitPanel, { ElongationPanel, fmtTransitDur, fmtTransitDate } from './PlanetaryTransits'
-import ConjunctionsPanel, { OppositionsPanel, fmtConjDate } from './ConjunctionsPanel'
+import PlanetaryTransitPanel, { ElongationPanel } from './PlanetaryTransits'
+import ConjunctionsPanel, { OppositionsPanel } from './ConjunctionsPanel'
 import { useSimTime } from '../time/TimeContext'
+import { useEventPins } from './eventPins'
 import { ISS_LAUNCH_MS } from './issEngine'
 import { ECLIPSE_DESCRIPTIONS, TRANSIT_DESCRIPTIONS, METEOR_DESCRIPTIONS } from './eventDescriptions'
-
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-
-function formatEventDate(dateStr) {
-  if (!dateStr) return ''
-  const neg = dateStr.startsWith('-')
-  const bare = neg ? dateStr.slice(1) : dateStr
-  const [y, m, d] = bare.split('-')
-  const prefix = neg ? '−' : ''
-  return `${prefix}${y} ${MONTHS[parseInt(m, 10) - 1]} ${parseInt(d, 10)}`
-}
-
-const TYPE_NAMES = { T: 'Total', A: 'Annular', H: 'Hybrid', P: 'Partial', N: 'Penumbral' }
 
 // ── Shared accordion section ───────────────────────────────────────────────
 
@@ -36,6 +24,27 @@ function Section({ title, children }) {
   )
 }
 
+// ── Description lookup for a focused pin ───────────────────────────────────
+
+function descriptionFor(evt) {
+  if (!evt) return null
+  switch (evt.kind) {
+    case 'eclipse': {
+      const e = evt.payload
+      const key = e.kind === 'lunar' ? `${e.date}-lunar` : e.date
+      return ECLIPSE_DESCRIPTIONS[key] ?? null
+    }
+    case 'transit': {
+      const year = new Date(evt.payload.peak).getUTCFullYear()
+      return TRANSIT_DESCRIPTIONS[`${evt.payload.planet.toLowerCase()}-${year}`] ?? null
+    }
+    case 'meteor':
+      return METEOR_DESCRIPTIONS[evt.payload.shower.name] ?? null
+    default:
+      return null
+  }
+}
+
 // ── Main component ─────────────────────────────────────────────────────────
 
 export default function LeftPanel({
@@ -43,71 +52,31 @@ export default function LeftPanel({
   loading,
   lunarCatalog,
   lunarLoading,
-  initialCat,
-  onSelectEclipse,
-  selectedEclipse,
   activeTransit,
   scoreData,
   onSelectIssPass,
   onTransitPaths,
   onSelectTransit,
   onSelectPlace,
-  onSelectMeteor,
-  selectedMeteor,
-  onSelectPlanetaryTransit,
-  selectedPlanetaryTransit,
-  onSelectElongation,
-  selectedElongation,
-  onSelectConjunction,
-  selectedConjunction,
-  onSelectOpposition,
-  selectedOpposition,
 }) {
   const { simTime } = useSimTime()
+  const { pins, focusId, focused, focusPin, removePin, jumpTo } = useEventPins()
+  const [addOpen, setAddOpen] = useState(false)
   const issActive = simTime.getTime() >= ISS_LAUNCH_MS
 
-  // Determine what to show in the event header
+  // Event header: ISS transit (location-computed, not a pin) takes precedence
   let eventLabel = null, eventDate = null
   if (activeTransit) {
     eventLabel = `${activeTransit.type === 'solar' ? 'Solar' : 'Lunar'} ISS Transit`
     const d = activeTransit.midTime
     const pad = n => String(n).padStart(2, '0')
     eventDate = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}  ${pad(d.getHours())}:${pad(d.getMinutes())} UTC`
-  } else if (selectedPlanetaryTransit) {
-    eventLabel = `${selectedPlanetaryTransit.planet} Transit`
-    eventDate = `${fmtTransitDate(selectedPlanetaryTransit.peak)} · ${fmtTransitDur(selectedPlanetaryTransit.durMin)}`
-  } else if (selectedElongation) {
-    eventLabel = `${selectedElongation.planet} Greatest Elongation`
-    eventDate = `${fmtTransitDate(selectedElongation.date)} · ${selectedElongation.angleDeg}° ${selectedElongation.visibility}`
-  } else if (selectedOpposition) {
-    eventLabel = `${selectedOpposition.planet} Opposition`
-    eventDate = fmtConjDate(selectedOpposition.date)
-  } else if (selectedConjunction) {
-    eventLabel = `${selectedConjunction.planet} Conjunction`
-    eventDate = fmtConjDate(selectedConjunction.date)
-  } else if (selectedMeteor?.shower) {
-    eventLabel = `${selectedMeteor.shower.name} Meteor Shower`
-    eventDate = `Peak ${selectedMeteor.peakDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })} · ~${selectedMeteor.shower.zhr}/hr`
-  } else if (selectedEclipse) {
-    const kindLabel = selectedEclipse.kind === 'lunar' ? 'Lunar' : 'Solar'
-    const typeName = TYPE_NAMES[selectedEclipse.type?.[0]] ?? ''
-    eventLabel = `${typeName} ${kindLabel} Eclipse`
-    eventDate = formatEventDate(selectedEclipse.date)
+  } else if (focused) {
+    eventLabel = focused.title
+    eventDate  = focused.dateLabel
   }
 
-  // Look up description for the current selection
-  let description = null
-  if (selectedPlanetaryTransit) {
-    const year = new Date(selectedPlanetaryTransit.peak).getUTCFullYear()
-    description = TRANSIT_DESCRIPTIONS[`${selectedPlanetaryTransit.planet.toLowerCase()}-${year}`] ?? null
-  } else if (selectedEclipse) {
-    const key = selectedEclipse.kind === 'lunar'
-      ? `${selectedEclipse.date}-lunar`
-      : selectedEclipse.date
-    description = ECLIPSE_DESCRIPTIONS[key] ?? null
-  } else if (selectedMeteor?.shower) {
-    description = METEOR_DESCRIPTIONS[selectedMeteor.shower.name] ?? null
-  }
+  const description = activeTransit ? null : descriptionFor(focused)
 
   return (
     <div className="left-panel">
@@ -130,60 +99,95 @@ export default function LeftPanel({
         </div>
       )}
 
-      {/* ── Accordion sections ───────────────────────────────────────── */}
-      <div className="lp-sections">
-        <Section title="Eclipse">
-          <EclipseBrowser
-            embedded
-            catalog={catalog}
-            loading={loading}
-            lunarCatalog={lunarCatalog}
-            lunarLoading={lunarLoading}
-            initialCat={initialCat}
-            onSelect={onSelectEclipse}
-          />
-        </Section>
-
-        {issActive && (
-          <Section title="Satellite">
-            <IssSatellitePanel
-              lat={scoreData?.lat}
-              lng={scoreData?.lng}
-              onSelectPass={onSelectIssPass}
-              onTransitPaths={onTransitPaths}
-              onSelectTransit={onSelectTransit}
-              onSelectPlace={onSelectPlace}
-            />
-            <div className="iss-ring-legend">
-              <div className="iss-ring-legend-title">Visibility ring</div>
-              <div className="iss-ring-legend-row"><span className="iss-ring-legend-dot" style={{ background: '#22c55e' }} />Visible from location</div>
-              <div className="iss-ring-legend-row"><span className="iss-ring-legend-dot" style={{ background: '#f59e0b' }} />Sky too bright</div>
-              <div className="iss-ring-legend-row"><span className="iss-ring-legend-dot" style={{ background: '#94a3b8' }} />ISS in Earth's shadow</div>
-              <div className="iss-ring-legend-row"><span className="iss-ring-legend-dot" style={{ background: '#0ea5e9' }} />Below viewing angle</div>
-            </div>
-          </Section>
+      {/* ── Pinned events ────────────────────────────────────────────── */}
+      <div className="lp-pins">
+        {pins.length === 0 && (
+          <div className="lp-pins-empty">No events pinned yet — add one below.</div>
         )}
-
-        <Section title="Planetary Transits">
-          <PlanetaryTransitPanel onSelectTransit={onSelectPlanetaryTransit} />
-        </Section>
-
-        <Section title="Elongations">
-          <ElongationPanel onSelectElongation={onSelectElongation} />
-        </Section>
-
-        <Section title="Oppositions">
-          <OppositionsPanel onSelect={onSelectOpposition} selected={selectedOpposition} />
-        </Section>
-
-        <Section title="Conjunctions">
-          <ConjunctionsPanel onSelect={onSelectConjunction} selected={selectedConjunction} />
-        </Section>
-
-        <Section title="Meteor Showers">
-          <MeteorShowerPanel onSelectShower={onSelectMeteor} />
-        </Section>
+        {pins.map(p => (
+          <div
+            key={p.id}
+            className={`lp-pin-row${p.id === focusId ? ' is-focused' : ''}`}
+            onClick={() => focusPin(p.id)}
+          >
+            <span className="lp-pin-icon">{p.icon}</span>
+            <span className="lp-pin-main">
+              <span className="lp-pin-title">{p.title}</span>
+              <span className="lp-pin-date">{p.dateLabel}</span>
+            </span>
+            <button
+              className="lp-pin-btn lp-pin-jump"
+              title="Jump the clock to this event"
+              onClick={e => { e.stopPropagation(); focusPin(p.id); jumpTo(p) }}
+            >▶</button>
+            <button
+              className="lp-pin-btn lp-pin-remove"
+              title="Remove from map"
+              onClick={e => { e.stopPropagation(); removePin(p.id) }}
+            >×</button>
+          </div>
+        ))}
       </div>
+
+      {/* ── Add event ────────────────────────────────────────────────── */}
+      <button className={`lp-add-event${addOpen ? ' is-open' : ''}`} onClick={() => setAddOpen(v => !v)}>
+        <span className="lp-add-event-plus">{addOpen ? '−' : '+'}</span>
+        Add event
+      </button>
+
+      {addOpen && (
+        <div className="lp-sections">
+          <Section title="Eclipse">
+            <EclipseBrowser
+              embedded
+              catalog={catalog}
+              loading={loading}
+              lunarCatalog={lunarCatalog}
+              lunarLoading={lunarLoading}
+            />
+          </Section>
+
+          {issActive && (
+            <Section title="Satellite">
+              <IssSatellitePanel
+                lat={scoreData?.lat}
+                lng={scoreData?.lng}
+                onSelectPass={onSelectIssPass}
+                onTransitPaths={onTransitPaths}
+                onSelectTransit={onSelectTransit}
+                onSelectPlace={onSelectPlace}
+              />
+              <div className="iss-ring-legend">
+                <div className="iss-ring-legend-title">Visibility ring</div>
+                <div className="iss-ring-legend-row"><span className="iss-ring-legend-dot" style={{ background: '#22c55e' }} />Visible from location</div>
+                <div className="iss-ring-legend-row"><span className="iss-ring-legend-dot" style={{ background: '#f59e0b' }} />Sky too bright</div>
+                <div className="iss-ring-legend-row"><span className="iss-ring-legend-dot" style={{ background: '#94a3b8' }} />ISS in Earth's shadow</div>
+                <div className="iss-ring-legend-row"><span className="iss-ring-legend-dot" style={{ background: '#0ea5e9' }} />Below viewing angle</div>
+              </div>
+            </Section>
+          )}
+
+          <Section title="Planetary Transits">
+            <PlanetaryTransitPanel />
+          </Section>
+
+          <Section title="Elongations">
+            <ElongationPanel />
+          </Section>
+
+          <Section title="Oppositions">
+            <OppositionsPanel />
+          </Section>
+
+          <Section title="Conjunctions">
+            <ConjunctionsPanel />
+          </Section>
+
+          <Section title="Meteor Showers">
+            <MeteorShowerPanel />
+          </Section>
+        </div>
+      )}
     </div>
   )
 }

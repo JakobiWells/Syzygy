@@ -11,12 +11,15 @@ import { useLunarCatalog } from './useLunarCatalog'
 import { buildLunarZones } from './lunarVisibility'
 import LocationPanel from './LocationPanel'
 import LeftPanel from './LeftPanel'
-import { meteorGeoJSON } from './MeteorShowers'
+import { meteorGeoJSON, SHOWERS, peakDate } from './MeteorShowers'
+import { ALL_TRANSITS, ALL_ELONGATIONS } from './PlanetaryTransits'
+import { findEvents } from './ConjunctionsPanel'
+import { EventPinsProvider, useEventPins, toEvent } from './eventPins'
 import BortleLegend from './BortleLegend'
 import TimeBar from '../time/TimeBar'
 import TimeScrubber from '../time/TimeScrubber'
 import { useSimTime } from '../time/TimeContext'
-import { useOverlays } from './OverlaysContext'
+import { useOverlays, OVERLAY_DEFAULTS } from './OverlaysContext'
 import { getNightPolygon, getDayPolygon } from './daynight'
 import { TerrainShadowLayer } from './terrainShadowLayer'
 import SunIndicator from './SunIndicator'
@@ -445,6 +448,11 @@ function initLayers(map) {
   map.addLayer({ id: 'planetary-transit-outline', type: 'line', source: 'planetary-transit-source',
     paint: { 'line-color': '#fbbf24', 'line-width': 1.5, 'line-opacity': 0.5, 'line-dasharray': [4, 3] } })
 
+  // Pinned (non-focused) eclipse center lines — dashed footprints for comparison
+  map.addSource('pinned-paths-source', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
+  map.addLayer({ id: 'pinned-paths-line', type: 'line', source: 'pinned-paths-source',
+    paint: { 'line-color': '#1a1a1a', 'line-width': 1.5, 'line-opacity': 0.5, 'line-dasharray': [2, 2] } })
+
   // Meteor shower visibility zones (rendered largest→smallest so inner zones override outer)
   map.addSource('meteor-source', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
   map.addLayer({ id: 'meteor-fill', type: 'fill', source: 'meteor-source',
@@ -549,14 +557,52 @@ function applyLayerVisibility(map, { showPath, showCenter }, eclipseType, isLuna
     map.setLayoutProperty('penumbra-outline', 'visibility', vis(isPartial))
 }
 
+// Stable "no meteor" value so derived-selection effects don't retrigger
+const NO_METEOR = { shower: null, peakDate: null }
+
+// ─── URL pin resolution ─────────────────────────────────────────────────────
+// Pin ids are compact and self-describing: se-<cat>, le-<cat>, ms-<id>-<year>,
+// tr-<id>, el-<id>, cj-<id>, op-<id>. Resolve back to full events on load.
+
+function resolvePinId(id, catalog, lunarCatalog) {
+  const dash = id.indexOf('-')
+  if (dash < 0) return null
+  const prefix = id.slice(0, dash)
+  const rest = id.slice(dash + 1)
+  switch (prefix) {
+    case 'se': { const e = catalog.find(e => String(e.cat) === rest);      return e ? toEvent('eclipse', e) : null }
+    case 'le': { const e = lunarCatalog.find(e => String(e.cat) === rest); return e ? toEvent('eclipse', e) : null }
+    case 'ms': {
+      const m = rest.match(/^(.+)-(-?\d+)$/)
+      const shower = m && SHOWERS.find(s => s.id === m[1])
+      return shower ? toEvent('meteor', { shower, peakDate: peakDate(shower, Number(m[2])) }) : null
+    }
+    case 'tr': { const t = ALL_TRANSITS.find(t => t.id === rest);    return t ? toEvent('transit', t) : null }
+    case 'el': { const e = ALL_ELONGATIONS.find(e => e.id === rest); return e ? toEvent('elongation', e) : null }
+    case 'cj':
+    case 'op': {
+      const kind = prefix === 'cj' ? 'conjunction' : 'opposition'
+      const ym = rest.match(/(-?\d{1,4})-\d{2}-\d{2}$/)
+      if (!ym) return null
+      try {
+        const start = new Date(Date.UTC(Number(ym[1]) - 1, 0, 1))
+        const e = findEvents(kind, kind === 'conjunction' ? 0 : 180, start, 4).find(e => e.id === rest)
+        return e ? toEvent(kind, e) : null
+      } catch { return null }
+    }
+    default: return null
+  }
+}
+
 // ─── Main component ────────────────────────────────────────────────────────
 
-export default function EclipsePage() {
+function EclipsePageInner() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { catalog, loading: catalogLoading } = useCatalog()
   const { catalog: lunarCatalog, loading: lunarLoading } = useLunarCatalog()
   const { simTime, isPlaying, setSimTime } = useSimTime()
-  const { overlays, projection } = useOverlays()
+  const { overlays, projection, setOverlaysBulk } = useOverlays()
+  const { pins, focused, addPin, focusPin } = useEventPins()
 
   const mapContainer = useRef(null)
   const map = useRef(null)
@@ -572,25 +618,23 @@ export default function EclipsePage() {
   const lastNightUpdateRef = useRef(0)
   const weatherCacheRef = useRef({})
 
-  const [selectedEclipse, setSelectedEclipse] = useState(null)
   const [activeTransit, setActiveTransit] = useState(null)
   const [mapError, setMapError] = useState(null)
   const [mapLoaded, setMapLoaded] = useState(false)
   const [scoreData, setScoreData] = useState(null)
   const [transitPaths, setTransitPaths] = useState(null)
-  const [selectedMeteor, setSelectedMeteor] = useState({ shower: null, peakDate: null })
-  const [selectedPlanetaryTransit, setSelectedPlanetaryTransit] = useState(null)
-  const [selectedElongation, setSelectedElongation] = useState(null)
-  const [selectedConjunction, setSelectedConjunction] = useState(null)
-  const [selectedOpposition, setSelectedOpposition] = useState(null)
   const [selectedHotel, setSelectedHotel]   = useState(null)
 
-  // initialCat from URL — passed down to EclipseBrowser for auto-selection
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const initialCat = useMemo(() => {
-    const cat = parseInt(searchParams.get('eclipse'), 10)
-    return isNaN(cat) ? null : cat
-  }, [])
+  // Per-kind selections derived from the focused pin — the map renders the
+  // focused event in full; other pins render lightweight footprints.
+  const selectedEclipse = focused?.kind === 'eclipse' ? focused.payload : null
+  const selectedMeteor = focused?.kind === 'meteor' ? focused.payload : NO_METEOR
+  const selectedPlanetaryTransit = focused?.kind === 'transit' ? focused.payload : null
+
+  // Focusing a pinned event dismisses any active ISS transit view
+  useEffect(() => {
+    if (focused) setActiveTransit(null)
+  }, [focused?.id])
 
   // ─── Adapted eclipse (with old-format fields for map code) ───────────────
 
@@ -635,30 +679,6 @@ export default function EclipsePage() {
     }
   }, [selectedEclipse?.cat, corridorLineFeature])
 
-  // Jump simulation clock when eclipse changes.
-  // Solar eclipses with a path start at path-beginning so the animation plays naturally.
-  // Lunar and partial solar (no path) jump straight to peak.
-  useEffect(() => {
-    if (!eclipse?.date || !eclipse?.peakUTC) return
-    try {
-      const neg = eclipse.date.startsWith('-')
-      const bare = neg ? eclipse.date.slice(1) : eclipse.date
-      const [y, m, d] = bare.split('-').map(Number)
-      const peak = new Date(0)
-      peak.setUTCFullYear(neg ? -y : y, m - 1, d)
-      const parts = eclipse.peakUTC.split(':').map(Number)
-      peak.setUTCHours(parts[0], parts[1], parts[2] ?? 0, 0)
-      if (eclipse.kind === 'lunar' || !eclipse.pathDurationS) {
-        // Lunar or partial solar: go to peak so sky view shows the event immediately
-        setSimTime(peak)
-      } else {
-        // Solar with path: start at beginning so the shadow animation plays from the start
-        const pathStartMs = peak.getTime() - eclipse.peakFrac * eclipse.pathDurationS * 1000
-        setSimTime(new Date(pathStartMs))
-      }
-    } catch {}
-  }, [selectedEclipse?.cat])
-
   // Keep refs in sync for animation/click handlers (refs escape stale closures)
   useEffect(() => {
     eclipseRef.current = eclipse
@@ -669,16 +689,67 @@ export default function EclipsePage() {
   useEffect(() => { simTimeRef.current = simTime }, [simTime])
 
   // ─── URL sync ────────────────────────────────────────────────────────────
+  // Shareable state: pinned events, focus, sim time, non-default layers,
+  // and the picked location. Restored once when the catalogs are ready.
+
+  const urlRestoredRef = useRef(false)
 
   useEffect(() => {
-    if (!selectedEclipse) return
-    const params = { eclipse: String(selectedEclipse.cat) }
+    if (urlRestoredRef.current || !catalog || !lunarCatalog) return
+    urlRestoredRef.current = true
+
+    const tParam = Number(searchParams.get('t'))
+    if (isFinite(tParam) && tParam !== 0) setSimTime(new Date(tParam))
+
+    const layersParam = searchParams.get('layers')
+    if (layersParam) {
+      const patch = {}
+      for (const key of layersParam.split('.')) {
+        if (key in OVERLAY_DEFAULTS) patch[key] = !OVERLAY_DEFAULTS[key]
+      }
+      setOverlaysBulk(patch)
+    }
+
+    const pinsParam = searchParams.get('pins')
+    if (pinsParam) {
+      const events = pinsParam.split('.')
+        .map(id => resolvePinId(id, catalog, lunarCatalog))
+        .filter(Boolean)
+      events.forEach(evt => addPin(evt, false))
+      const focusParam = searchParams.get('focus')
+      const focusEvt = events.find(e => e.id === focusParam) ?? events[0]
+      if (focusEvt) focusPin(focusEvt.id)
+      return
+    }
+
+    // No pins in URL: legacy ?eclipse=<cat> link, or default to the next
+    // total/hybrid solar eclipse.
+    const legacyCat = parseInt(searchParams.get('eclipse'), 10)
+    let entry = !isNaN(legacyCat) ? catalog.find(e => e.cat === legacyCat) : null
+    if (!entry) {
+      const today = new Date().toISOString().slice(0, 10)
+      entry = catalog.find(e => e.date >= today && 'TH'.includes(e.type?.[0]))
+        || catalog.find(e => e.date >= today && e.centerLine)
+        || catalog.find(e => e.type?.[0] === 'T')
+    }
+    if (entry) addPin(toEvent('eclipse', entry), true)
+  }, [catalog, lunarCatalog])
+
+  useEffect(() => {
+    if (!urlRestoredRef.current) return
+    const params = {}
+    if (pins.length) params.pins = pins.map(p => p.id).join('.')
+    if (focused) params.focus = focused.id
+    // Snapshot of the clock at the last structural change (not every frame)
+    params.t = String(Math.round(simTimeRef.current.getTime()))
+    const changed = Object.keys(OVERLAY_DEFAULTS).filter(k => !!overlays[k] !== OVERLAY_DEFAULTS[k])
+    if (changed.length) params.layers = changed.join('.')
     if (scoreData) {
       params.lat = scoreData.lat.toFixed(5)
       params.lng = scoreData.lng.toFixed(5)
     }
     setSearchParams(params, { replace: true })
-  }, [selectedEclipse?.cat, scoreData])
+  }, [pins, focused?.id, overlays, scoreData])
 
   // ─── Map initialisation ──────────────────────────────────────────────────
 
@@ -730,7 +801,30 @@ export default function EclipsePage() {
   // ─── Eclipse change → update map sources ────────────────────────────────
 
   useEffect(() => {
-    if (!mapLoaded || !map.current || !eclipse) return
+    if (!mapLoaded || !map.current) return
+
+    // No focused eclipse (focus moved to another event kind, or pin removed):
+    // clear all eclipse rendering. Pinned eclipses keep their dashed footprint
+    // via the pinned-paths layer.
+    if (!eclipse) {
+      const m = map.current
+      m.getSource('umbra-source')?.setData(EMPTY_POLY)
+      m.getSource('north-limit-source')?.setData(EMPTY_LINE)
+      m.getSource('south-limit-source')?.setData(EMPTY_LINE)
+      m.getSource('shadow-source')?.setData(EMPTY_CIRCLE)
+      m.getSource('center-line-source')?.setData(EMPTY_LINE)
+      m.getSource('hybrid-annular-source')?.setData(EMPTY_FC)
+      m.getSource('hybrid-total-source')?.setData(EMPTY_LINE)
+      m.getSource('penumbra-source')?.setData(EMPTY_POLY)
+      for (const key of ['pen', 'part', 'tot', 'enttot', 'entpart', 'entecl']) {
+        m.getSource(`lunar-${key}-source`)?.setData(EMPTY_POLY)
+        if (m.getLayer(`lunar-${key}-fill`))    m.setLayoutProperty(`lunar-${key}-fill`,    'visibility', 'none')
+        if (m.getLayer(`lunar-${key}-outline`)) m.setLayoutProperty(`lunar-${key}-outline`, 'visibility', 'none')
+      }
+      if (greatestMarkerRef.current) { greatestMarkerRef.current.remove(); greatestMarkerRef.current = null }
+      if (durationMarkerRef.current) { durationMarkerRef.current.remove(); durationMarkerRef.current = null }
+      return
+    }
 
     const isLunar   = eclipse.kind === 'lunar'
     const isHybrid  = !isLunar && eclipse.type?.[0] === 'H'
@@ -1195,7 +1289,36 @@ export default function EclipsePage() {
     if (!isNaN(urlLat) && !isNaN(urlLng)) handleLocationSelect(urlLng, urlLat)
   }, [mapLoaded, eclipse?.cat])
 
-  const handleSelect = useCallback(e => setSelectedEclipse(e), [])
+  // Fly the map to a newly focused event's region of interest
+  useEffect(() => {
+    if (!focused) return
+    if (focused.kind === 'meteor') {
+      const dec = focused.payload.shower.dec
+      map.current?.flyTo({ center: [0, Math.max(-60, Math.min(60, dec))], zoom: 1.5, duration: 1200 })
+    }
+  }, [focused?.id])
+
+  // Lightweight footprints for pinned-but-not-focused solar eclipses:
+  // dashed center lines so several paths can be compared at once.
+  useEffect(() => {
+    if (!mapLoaded) return
+    const m = map.current
+    const src = m?.getSource('pinned-paths-source')
+    if (!src) return
+    const features = []
+    for (const p of pins) {
+      if (p.kind !== 'eclipse' || p.id === focused?.id) continue
+      const e = p.payload
+      if (e.kind === 'lunar' || !e.centerLine?.length) continue
+      const segs = Array.isArray(e.centerLine[0][0]) ? e.centerLine : [e.centerLine]
+      for (const seg of segs) {
+        if (seg.length >= 2) {
+          features.push({ type: 'Feature', properties: { id: p.id }, geometry: { type: 'LineString', coordinates: seg } })
+        }
+      }
+    }
+    src.setData({ type: 'FeatureCollection', features })
+  }, [pins, focused?.id, mapLoaded])
 
   // ─── Render ──────────────────────────────────────────────────────────────
 
@@ -1243,9 +1366,6 @@ export default function EclipsePage() {
         loading={catalogLoading}
         lunarCatalog={lunarCatalog}
         lunarLoading={lunarLoading}
-        initialCat={initialCat}
-        onSelectEclipse={eclipse => { setActiveTransit(null); handleSelect(eclipse) }}
-        selectedEclipse={selectedEclipse}
         activeTransit={activeTransit}
         scoreData={scoreData}
         onSelectIssPass={pass => {
@@ -1264,34 +1384,6 @@ export default function EclipsePage() {
           map.current?.flyTo({ center: [lng, lat], zoom: 9, duration: 1000 })
           handleLocationSelect(lng, lat)
         }}
-        selectedMeteor={selectedMeteor}
-        onSelectMeteor={(shower, peakDate) => {
-          setSelectedMeteor({ shower, peakDate })
-          if (shower) {
-            setSimTime(peakDate)
-            map.current?.flyTo({ center: [0, Math.max(-60, Math.min(60, shower.dec))], zoom: 1.5, duration: 1200 })
-          }
-        }}
-        selectedPlanetaryTransit={selectedPlanetaryTransit}
-        onSelectPlanetaryTransit={t => {
-          setSelectedPlanetaryTransit(t)
-          if (t) setSimTime(new Date(t.peak))
-        }}
-        selectedElongation={selectedElongation}
-        onSelectElongation={e => {
-          setSelectedElongation(e)
-          if (e) setSimTime(new Date(e.date))
-        }}
-        selectedConjunction={selectedConjunction}
-        onSelectConjunction={e => {
-          setSelectedConjunction(e)
-          if (e) setSimTime(new Date(e.date))
-        }}
-        selectedOpposition={selectedOpposition}
-        onSelectOpposition={e => {
-          setSelectedOpposition(e)
-          if (e) setSimTime(new Date(e.date))
-        }}
       />
 
       <LocationPanel
@@ -1304,5 +1396,13 @@ export default function EclipsePage() {
         }}
       />
     </div>
+  )
+}
+
+export default function EclipsePage() {
+  return (
+    <EventPinsProvider>
+      <EclipsePageInner />
+    </EventPinsProvider>
   )
 }

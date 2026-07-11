@@ -28,7 +28,7 @@ export const OVERLAY_ITEMS = [
   { key: 'weatherPressure', label: 'Pressure',          color: '#fb923c' },
 ]
 
-const DEFAULTS = {
+export const OVERLAY_DEFAULTS = {
   night: true,
   terrainShadow: false,
   eclipsePath: true,
@@ -55,15 +55,20 @@ const DEFAULTS = {
 }
 
 export function OverlaysProvider({ children }) {
-  const [overlays, setOverlays] = useState(DEFAULTS)
+  const [overlays, setOverlays] = useState(OVERLAY_DEFAULTS)
   const [projection, setProjection] = useState('globe')
 
   const toggleOverlay = useCallback((key) => {
     setOverlays(prev => ({ ...prev, [key]: !prev[key] }))
   }, [])
 
+  // Bulk apply (URL restore): merge a partial { key: bool } patch
+  const setOverlaysBulk = useCallback((patch) => {
+    setOverlays(prev => ({ ...prev, ...patch }))
+  }, [])
+
   return (
-    <OverlaysContext.Provider value={{ overlays, toggleOverlay, projection, setProjection }}>
+    <OverlaysContext.Provider value={{ overlays, toggleOverlay, setOverlaysBulk, projection, setProjection }}>
       {children}
     </OverlaysContext.Provider>
   )

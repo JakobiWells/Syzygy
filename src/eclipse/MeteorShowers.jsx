@@ -1,11 +1,12 @@
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useSimTime } from '../time/TimeContext'
+import { useEventPins, toEvent } from './eventPins'
 import * as A from 'astronomy-engine'
 
 const DEG = Math.PI / 180
 
 // Major annual meteor showers: RA/Dec are the radiant coordinates at peak
-const SHOWERS = [
+export const SHOWERS = [
   { id: 'qua', name: 'Quadrantids',     month: 0,  day: 3,  ra: 230.1, dec: 48.5, zhr: 120 },
   { id: 'lyr', name: 'Lyrids',          month: 3,  day: 22, ra: 271.4, dec: 33.6, zhr: 18  },
   { id: 'eta', name: 'Eta Aquariids',   month: 4,  day: 6,  ra: 337.8, dec: -1.1, zhr: 60  },
@@ -91,7 +92,7 @@ export function meteorGeoJSON(shower, peakDate) {
   }
 }
 
-function peakDate(shower, year) {
+export function peakDate(shower, year) {
   return new Date(Date.UTC(year, shower.month, shower.day, 0, 0, 0))
 }
 
@@ -113,14 +114,18 @@ function strength(zhr) {
   return '●○○'
 }
 
-export default function MeteorShowerPanel({ onSelectShower }) {
+export default function MeteorShowerPanel() {
   const { simTime } = useSimTime()
-  const [selected, setSelected] = useState(null)
+  const { isPinned, togglePin } = useEventPins()
+
+  // Anchor the list to the real-world clock, not the moving sim time, so rows
+  // never reshuffle underneath a selection.
+  const anchor = useMemo(() => new Date(), [])
 
   const showers = useMemo(() =>
-    SHOWERS.map(s => ({ ...s, peak: nextPeak(s, simTime) }))
+    SHOWERS.map(s => ({ ...s, peak: nextPeak(s, anchor) }))
            .sort((a, b) => a.peak - b.peak),
-    [simTime]
+    [anchor]
   )
 
   function daysLabel(peak) {
@@ -131,23 +136,14 @@ export default function MeteorShowerPanel({ onSelectShower }) {
     return `in ${days}d`
   }
 
-  function toggle(s) {
-    if (selected?.id === s.id) {
-      setSelected(null)
-      onSelectShower?.(null, null)
-    } else {
-      setSelected(s)
-      onSelectShower?.(s, s.peak)
-    }
-  }
-
   return (
     <div className="meteor-panel">
       {showers.map(s => {
-        const active = selected?.id === s.id
+        const evt    = toEvent('meteor', { shower: s, peakDate: s.peak })
+        const active = isPinned(evt.id)
         const days   = daysLabel(s.peak)
         return (
-          <button key={s.id} className={`meteor-row${active ? ' meteor-row--active' : ''}`} onClick={() => toggle(s)}>
+          <button key={s.id} className={`meteor-row${active ? ' meteor-row--active' : ''}`} onClick={() => togglePin(evt)}>
             <div className="meteor-row-top">
               <span className="meteor-name">{s.name}</span>
               <span className="meteor-str" title={`~${s.zhr}/hr at peak ZHR`}>{strength(s.zhr)}</span>

@@ -1,13 +1,14 @@
 import { useState, useMemo } from 'react'
 import { useSimTime } from '../time/TimeContext'
+import { useEventPins, toEvent } from './eventPins'
 import { computeTransits, computeElongations } from './solarSystemEvents'
 
 // Compute once on module load — covers 1990-2200
 const TRANSIT_START = new Date('1990-01-01T00:00:00Z')
-const ALL_TRANSITS  = computeTransits(TRANSIT_START, 40)
+export const ALL_TRANSITS  = computeTransits(TRANSIT_START, 40)
 
 const ELONG_START   = new Date(Date.now())
-const ALL_ELONGATIONS = computeElongations(ELONG_START, 16)
+export const ALL_ELONGATIONS = computeElongations(ELONG_START, 16)
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -53,9 +54,9 @@ function PlanetFilterRow({ filter, onChange }) {
 
 // ── Transit Panel ─────────────────────────────────────────────────────────────
 
-export default function PlanetaryTransitPanel({ onSelectTransit }) {
+export default function PlanetaryTransitPanel() {
   const { simTime } = useSimTime()
-  const [selected, setSelected] = useState(null)
+  const { isPinned, togglePin } = useEventPins()
   const [filter, setFilter] = useState('all')
 
   const transits = useMemo(() =>
@@ -63,28 +64,19 @@ export default function PlanetaryTransitPanel({ onSelectTransit }) {
     [filter]
   )
 
-  function toggle(t) {
-    if (selected?.id === t.id) {
-      setSelected(null)
-      onSelectTransit?.(null)
-    } else {
-      setSelected(t)
-      onSelectTransit?.(t)
-    }
-  }
-
   return (
     <div className="transit-panel">
       <PlanetFilterRow filter={filter} onChange={setFilter} />
 
       {transits.map(t => {
-        const active = selected?.id === t.id
+        const evt    = toEvent('transit', t)
+        const active = isPinned(evt.id)
         const label  = timeLabel(t.peak, simTime)
         return (
           <button
             key={t.id}
             className={`transit-row${active ? ' transit-row--active' : ''} transit-row--${t.planet.toLowerCase()}`}
-            onClick={() => toggle(t)}
+            onClick={() => togglePin(evt)}
           >
             <div className="transit-row-top">
               <span className="transit-planet-badge">{t.planet === 'Mercury' ? '☿' : '♀'}</span>
@@ -108,9 +100,9 @@ export default function PlanetaryTransitPanel({ onSelectTransit }) {
 
 // ── Elongation Panel ──────────────────────────────────────────────────────────
 
-export function ElongationPanel({ onSelectElongation }) {
+export function ElongationPanel() {
   const { simTime } = useSimTime()
-  const [selected, setSelected] = useState(null)
+  const { isPinned, togglePin } = useEventPins()
   const [filter, setFilter] = useState('all')
 
   const elongations = useMemo(() =>
@@ -118,28 +110,19 @@ export function ElongationPanel({ onSelectElongation }) {
     [filter]
   )
 
-  function toggle(e) {
-    if (selected?.id === e.id) {
-      setSelected(null)
-      onSelectElongation?.(null)
-    } else {
-      setSelected(e)
-      onSelectElongation?.(e)
-    }
-  }
-
   return (
     <div className="transit-panel">
       <PlanetFilterRow filter={filter} onChange={setFilter} />
 
       {elongations.map(e => {
-        const active = selected?.id === e.id
+        const evt    = toEvent('elongation', e)
+        const active = isPinned(evt.id)
         const label  = timeLabel(e.date, simTime)
         return (
           <button
             key={e.id}
             className={`transit-row${active ? ' transit-row--active' : ''} transit-row--${e.planet.toLowerCase()}`}
-            onClick={() => toggle(e)}
+            onClick={() => togglePin(evt)}
           >
             <div className="transit-row-top">
               <span className="transit-planet-badge">{e.planet === 'Mercury' ? '☿' : '♀'}</span>
