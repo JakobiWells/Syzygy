@@ -32,6 +32,25 @@ function timeLabel(date, simTime) {
   return `in ${Math.round(diff / 365.25)}yr`
 }
 
+const PLANET_FILTERS = [['all', 'All'], ['Mercury', '☿ Mercury'], ['Venus', '♀ Venus']]
+
+function PlanetFilterRow({ filter, onChange }) {
+  return (
+    <div className="transit-filter-row">
+      <span className="eclipse-filter-label">Planet</span>
+      <div className="evt-pill-row">
+        {PLANET_FILTERS.map(([val, label]) => (
+          <button
+            key={val}
+            className={`evt-pill${filter === val ? ' is-on' : ''}`}
+            onClick={() => onChange(val)}
+          >{label}</button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ── Transit Panel ─────────────────────────────────────────────────────────────
 
 export default function PlanetaryTransitPanel({ onSelectTransit }) {
@@ -56,17 +75,7 @@ export default function PlanetaryTransitPanel({ onSelectTransit }) {
 
   return (
     <div className="transit-panel">
-      <div className="transit-filter-row">
-        <div className="eclipse-kind-toggle">
-          {[['all', 'All'], ['Mercury', '☿ Mercury'], ['Venus', '♀ Venus']].map(([val, label]) => (
-            <button
-              key={val}
-              className={`eclipse-kind-btn${filter === val ? ' is-active' : ''}`}
-              onClick={() => setFilter(val)}
-            >{label}</button>
-          ))}
-        </div>
-      </div>
+      <PlanetFilterRow filter={filter} onChange={setFilter} />
 
       {transits.map(t => {
         const active = selected?.id === t.id
@@ -121,17 +130,7 @@ export function ElongationPanel({ onSelectElongation }) {
 
   return (
     <div className="transit-panel">
-      <div className="transit-filter-row">
-        <div className="eclipse-kind-toggle">
-          {[['all', 'All'], ['Mercury', '☿ Mercury'], ['Venus', '♀ Venus']].map(([val, label]) => (
-            <button
-              key={val}
-              className={`eclipse-kind-btn${filter === val ? ' is-active' : ''}`}
-              onClick={() => setFilter(val)}
-            >{label}</button>
-          ))}
-        </div>
-      </div>
+      <PlanetFilterRow filter={filter} onChange={setFilter} />
 
       {elongations.map(e => {
         const active = selected?.id === e.id

@@ -362,6 +362,7 @@
   top: 50%;
   left: 0;
   width: 100%;
+  height: 16px;
   margin: 0;
   padding: 0;
   transform: translateY(-50%);
@@ -377,11 +378,13 @@
   pointer-events: all;
   width: 14px;
   height: 14px;
+  /* Center the 14px thumb on the 3px track: (3 - 14) / 2 */
+  margin-top: -5.5px;
   border-radius: 50%;
-  background: #f9f9f7;
-  border: 2px solid #1a1a1a;
+  background: #1a1a1a;
+  border: 2px solid #f9f9f7;
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
 }
 
 .rs-thumb::-moz-range-track { background: transparent; height: 3px; }
@@ -389,11 +392,11 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #f9f9f7;
-  border: 2px solid #1a1a1a;
+  background: #1a1a1a;
+  border: 2px solid #f9f9f7;
   cursor: pointer;
   pointer-events: all;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
 }
 
 .rs-labels {
@@ -767,7 +770,7 @@
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.28rem 0.6rem;
+  padding: 0.28rem 0.75rem;
   cursor: pointer;
   font-size: 0.75rem;
   transition: background 0.07s;
@@ -2084,7 +2087,7 @@
 /* ── ISS ring legend (sidebar) ────────────────────── */
 
 .iss-ring-legend {
-  padding: 0.4rem 0.6rem 0.5rem;
+  padding: 0.45rem 0.75rem 0.5rem;
   border-top: 1px solid #e0e0dc;
 }
 
@@ -2714,46 +2717,121 @@
 
 /* ── Meteor Showers ────────────────────────────────────────────────────────── */
 
-.meteor-panel {
-  padding: 4px 0 2px;
+/* ── Event panels (meteor showers, transits, elongations, conjunctions,
+      oppositions) — shared light-theme styling matching the eclipse browser ── */
+
+.meteor-panel,
+.transit-panel {
+  padding: 0;
 }
 
+/* Filter bar (mirrors .eclipse-filter-bar / .eclipse-filter-row) */
+.transit-filter-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid #e0e0dc;
+}
+
+/* Pill row + pills (mirrors .eclipse-type-pills / .eclipse-type-pill) */
+.evt-pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.evt-pill {
+  flex: 0 0 auto;
+  background: #f0f0ee;
+  border: 1px solid #d8d8d4;
+  border-radius: 4px;
+  padding: 0.22rem 0.5rem;
+  font-size: 0.65rem;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  color: #5c5c5c;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  white-space: nowrap;
+}
+.evt-pill:hover:not(.is-on) { background: #e4e4e0; }
+.evt-pill.is-on {
+  background: #1a1a1a;
+  border-color: transparent;
+  color: #f9f9f7;
+}
+
+/* Event rows (two-line variant of .eclipse-browser-row) */
+.transit-row,
 .meteor-row {
   display: block;
   width: 100%;
-  padding: 7px 12px;
+  padding: 0.4rem 0.75rem;
   background: none;
   border: none;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  color: #e2e8f0;
+  border-bottom: 1px solid #f0f0ee;
+  color: #1a1a1a;
+  font-family: inherit;
   cursor: pointer;
   text-align: left;
-  transition: background 0.15s;
+  transition: background 0.07s;
 }
-.meteor-row:hover      { background: rgba(255,255,255,0.05); }
-.meteor-row--active    { background: rgba(124,58,237,0.18); }
+.transit-row:hover,
+.meteor-row:hover { background: #eaeae8; }
+.transit-row:last-of-type,
 .meteor-row:last-of-type { border-bottom: none; }
 
+.transit-row--active,
+.conj-row--active,
+.meteor-row--active {
+  background: #1a1a1a;
+  color: #f9f9f7;
+}
+.transit-row--active:hover,
+.conj-row--active:hover,
+.meteor-row--active:hover { background: #1a1a1a; }
+
+.transit-row-top,
 .meteor-row-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 6px;
 }
 
+.transit-planet-badge {
+  font-size: 14px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.transit-row--mercury .transit-planet-badge { color: #64748b; }
+.transit-row--venus   .transit-planet-badge { color: #b45309; }
+.transit-row--active .transit-planet-badge  { color: #d0d0cc; }
+
+.transit-name,
 .meteor-name {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
+  flex: 1;
   white-space: nowrap;
 }
+
+.transit-dur,
+.meteor-str {
+  font-size: 0.68rem;
+  color: #888;
+  flex-shrink: 0;
+}
+.transit-row--active .transit-dur { color: #aaa; }
 
 .meteor-str {
   font-size: 9px;
   letter-spacing: 1.5px;
-  color: #a78bfa;
-  flex-shrink: 0;
+  color: #7c3aed;
 }
+.meteor-row--active .meteor-str { color: #c4b5fd; }
 
+.transit-row-sub,
 .meteor-row-sub {
   display: flex;
   align-items: center;
@@ -2761,23 +2839,35 @@
   margin-top: 2px;
 }
 
+.transit-date,
 .meteor-date {
-  font-size: 10px;
-  color: #64748b;
+  font-size: 0.68rem;
+  color: #888;
 }
+.transit-row--active .transit-date,
+.meteor-row--active .meteor-date { color: #aaa; }
 
+.transit-when,
 .meteor-days {
-  font-size: 10px;
-  color: #7dd3fc;
+  font-size: 0.68rem;
+  color: #2563eb;
+}
+.transit-row--active .transit-when,
+.meteor-row--active .meteor-days { color: #93c5fd; }
+
+/* Footer note / legend (shared) */
+.transit-note,
+.meteor-legend {
+  padding: 0.45rem 0.75rem;
+  font-size: 0.62rem;
+  color: #999;
+  border-top: 1px solid #f0f0ee;
 }
 
 .meteor-legend {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 7px 12px 5px;
-  font-size: 10px;
-  color: #64748b;
 }
 
 .meteor-legend-dot {
@@ -2790,126 +2880,25 @@
 
 .meteor-legend-note {
   margin-left: 4px;
-  color: #475569;
-  font-size: 9px;
+  color: #aaa;
 }
 
-/* ── Planetary Transits ──────────────────────────────────────────────────── */
-
-.transit-panel {
-  padding: 4px 0 2px;
-}
-
-.transit-filter-row {
-  padding: 6px 12px 4px;
-}
-
-.transit-row {
-  display: block;
-  width: 100%;
-  padding: 7px 12px;
-  background: none;
-  border: none;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  color: #e2e8f0;
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.15s;
-}
-.transit-row:hover { background: rgba(255,255,255,0.05); }
-.transit-row--active.transit-row--mercury { background: rgba(148,163,184,0.15); }
-.transit-row--active.transit-row--venus   { background: rgba(251,191,36,0.12); }
-.transit-row:last-of-type { border-bottom: none; }
-
-.transit-row-top {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.transit-planet-badge {
-  font-size: 14px;
-  flex-shrink: 0;
-  line-height: 1;
-}
-.transit-row--mercury .transit-planet-badge { color: #94a3b8; }
-.transit-row--venus   .transit-planet-badge { color: #fbbf24; }
-
-.transit-name {
-  font-size: 12px;
-  font-weight: 600;
-  flex: 1;
-}
-
-.transit-dur {
-  font-size: 10px;
-  color: #64748b;
-  flex-shrink: 0;
-}
-
-.transit-row-sub {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 2px;
-}
-
-.transit-date {
-  font-size: 10px;
-  color: #64748b;
-}
-
-.transit-when {
-  font-size: 10px;
-  color: #7dd3fc;
-}
-
-.transit-note {
-  padding: 7px 12px 5px;
-  font-size: 9px;
-  color: #475569;
-}
-
-/* ── Conjunctions panel ──────────────────────────────────────────────────── */
-
-.conj-filter-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 6px 10px 4px;
-}
-
-.conj-pill {
-  flex: 0 0 auto;
-  background: #f0f0ee;
-  border: 1px solid #d8d8d4;
-  border-radius: 4px;
-  padding: 2px 7px;
-  font-size: 0.62rem;
-  font-family: inherit;
-  font-weight: 500;
-  cursor: pointer;
-  color: #5c5c5c;
-  transition: background 0.1s, color 0.1s, border-color 0.1s;
-  white-space: nowrap;
-}
-.conj-pill:hover:not(.conj-pill--on) { background: #e4e4e0; }
-.conj-pill--on { color: #0f172a; }
+/* ── Conjunctions / oppositions specifics ────────────────────────────────── */
 
 .conj-row {
   cursor: pointer;
 }
-.conj-row:hover { background: rgba(255,255,255,0.05); }
-.conj-row--active { background: color-mix(in srgb, var(--planet-color, #94a3b8) 18%, transparent); }
 
 .conj-planet-name {
-  color: var(--planet-color, #e2e8f0);
+  color: var(--planet-color, #1a1a1a);
 }
+.conj-row--active .conj-planet-name { color: #f9f9f7; }
 
 .conj-vs-sun {
-  color: #475569;
-  font-size: 9px;
+  color: #999;
+  font-size: 0.62rem;
 }
+.conj-row--active .conj-vs-sun { color: #aaa; }
 
 .conj-badge {
   font-size: 9px;

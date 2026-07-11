@@ -17,9 +17,10 @@ function timeLabel(date, simTime) {
   return `in ${Math.round(diff / 365.25)}yr`
 }
 
+// Dark enough to read on the light panel background
 export const PLANET_COLOR = {
-  Mars: '#f87171', Jupiter: '#fdba74', Saturn: '#e2d9c5',
-  Uranus: '#67e8f9', Neptune: '#818cf8',
+  Mars: '#dc2626', Jupiter: '#d97706', Saturn: '#a16207',
+  Uranus: '#0e7490', Neptune: '#4f46e5',
 }
 
 const OUTER = [
@@ -56,18 +57,21 @@ function findEvents(type, targetRelLon, startDate, count) {
 
 function PlanetFilter({ selected, onToggle }) {
   return (
-    <div className="conj-filter-row">
-      {Object.entries(PLANET_COLOR).map(([planet, color]) => {
-        const on = selected.has(planet)
-        return (
-          <button
-            key={planet}
-            className={`conj-pill${on ? ' conj-pill--on' : ''}`}
-            style={on ? { background: color, borderColor: color, color: '#0f172a' } : {}}
-            onClick={() => onToggle(planet)}
-          >{planet}</button>
-        )
-      })}
+    <div className="transit-filter-row">
+      <span className="eclipse-filter-label">Planet</span>
+      <div className="evt-pill-row">
+        {Object.entries(PLANET_COLOR).map(([planet, color]) => {
+          const on = selected.has(planet)
+          return (
+            <button
+              key={planet}
+              className={`evt-pill${on ? ' is-on' : ''}`}
+              style={on ? { background: color, borderColor: color } : {}}
+              onClick={() => onToggle(planet)}
+            >{planet}</button>
+          )
+        })}
+      </div>
     </div>
   )
 }
