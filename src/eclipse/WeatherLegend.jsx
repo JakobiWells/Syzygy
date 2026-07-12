@@ -1,24 +1,10 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useSimTime } from '../time/TimeContext'
+import { PROXY_BASE } from './WeatherLayer'
 
 // Color ramps matching OWM tile server palettes
 // Each entry: [value, r, g, b, a]  (a = 0–255)
 const RAMPS = {
-  weatherRadar: {
-    label: 'Precipitation (radar)', unit: 'mm/h',
-    stops: [
-      [  0,   0,   0,   0,   0],
-      [0.1, 161, 212, 255, 180],
-      [0.2, 130, 191, 255, 200],
-      [0.5,  40, 144, 255, 220],
-      [  1,   0, 127, 255, 230],
-      [  2,   0,  85, 255, 240],
-      [  5,   0,   0, 255, 250],
-      [ 10, 119,   0, 255, 255],
-      [ 20, 255,   0, 255, 255],
-    ],
-    ticks: [0, 0.5, 2, 10, 20],
-    logScale: true,
-  },
   weatherTemp: {
     label: 'Temperature', unit: '°C',
     stops: [
@@ -170,13 +156,69 @@ function LegendBar({ rampKey }) {
   )
 }
 
-export default function WeatherLegend({ overlays }) {
+// ── Radar legend (RainViewer universal-blue scheme) ─────────────────────────
+
+function pad2(n) { return String(n).padStart(2, '0') }
+function fmtFrameUTC(unixS) {
+  const d = new Date(unixS * 1000)
+  return `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())} UTC`
+}
+
+function RadarLegend({ status }) {
+  let note
+  if (status?.state === 'ok') {
+    note = `Frame ${fmtFrameUTC(status.frameTime)}${status.nowcast ? ' · nowcast' : ''}`
+  } else if (status?.state === 'out-of-range') {
+    note = 'Live radar covers the last ~2 h — move time closer to now'
+  } else {
+    note = 'Loading radar frames…'
+  }
+  return (
+    <div className="wx-legend">
+      <div className="wx-legend-label">Radar <span className="wx-legend-unit">(live · RainViewer)</span></div>
+      <div className="wx-radar-grad" />
+      <div className="wx-radar-scale"><span>light</span><span>moderate</span><span>heavy</span></div>
+      <div className="wx-legend-note">{note}</div>
+    </div>
+  )
+}
+
+// One shared capability check per session
+let _capsPromise = null
+function fetchCaps() {
+  if (!_capsPromise) {
+    _capsPromise = fetch(`${PROXY_BASE}/capabilities`)
+      .then(r => r.json())
+      .catch(() => ({ maps2: false }))
+  }
+  return _capsPromise
+}
+
+export default function WeatherLegend({ overlays, radarStatus }) {
+  const { simTime } = useSimTime()
+  const [caps, setCaps] = useState(null)
   const active = Object.keys(RAMPS).filter(k => overlays[k])
-  if (active.length === 0) return null
+  const showRadar = !!overlays.weatherRadar
+
+  useEffect(() => {
+    if (active.length > 0 && !caps) fetchCaps().then(setCaps)
+  }, [active.length, caps])
+
+  if (!showRadar && active.length === 0) return null
+
+  // OWM tiles step in 3 h increments when the key supports Maps 2.0; without
+  // it the proxy falls back to current conditions regardless of sim time.
+  const offNow = Math.abs(simTime.getTime() - Date.now()) > 3 * 3_600_000
 
   return (
     <div className="wx-legend-stack">
+      {showRadar && <RadarLegend status={radarStatus} />}
       {active.map(key => <LegendBar key={key} rampKey={key} />)}
+      {active.length > 0 && caps && !caps.maps2 && offNow && (
+        <div className="wx-legend-warning">
+          Showing current conditions — time-stepped weather isn’t available on the current data plan
+        </div>
+      )}
     </div>
   )
 }

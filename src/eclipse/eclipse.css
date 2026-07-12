@@ -3376,6 +3376,42 @@
   white-space: nowrap;
 }
 
+/* Radar legend (RainViewer universal-blue scheme) */
+.wx-radar-grad {
+  height: 12px;
+  border-radius: 3px;
+  background: linear-gradient(to right,
+    rgba(136, 208, 245, 0.15), #88d0f5 20%, #4aa8e8 45%, #2060c0 65%, #102a80 82%, #7c2ea8 100%);
+}
+
+.wx-radar-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+  font-size: 0.6rem;
+  color: rgba(255,255,255,0.65);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.wx-legend-note {
+  margin-top: 5px;
+  font-size: 0.62rem;
+  color: rgba(255,255,255,0.55);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.wx-legend-warning {
+  background: rgba(10, 10, 18, 0.82);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  border-radius: 6px;
+  padding: 5px 10px;
+  width: 280px;
+  font-size: 0.62rem;
+  color: rgba(251, 191, 36, 0.9);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  backdrop-filter: blur(6px);
+}
+
 /* ── Hotel card ──────────────────────────────────── */
 
 .hotel-card {

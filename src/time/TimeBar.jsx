@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useSimTime } from './TimeContext'
-import { useOverlays, OVERLAY_ITEMS } from '../eclipse/OverlaysContext'
+import { useOverlays } from '../eclipse/OverlaysContext'
+import LayersPanel from '../eclipse/LayersPanel'
 import Logo from '../components/Logo'
 import './time.css'
 
@@ -215,53 +216,6 @@ function useScrubHandler(simTime, speed, setSimTime, onShortClick) {
   }
 }
 
-// ── Layers dropdown ──────────────────────────────────────────────────────────
-
-function LayersMenu() {
-  const { overlays, toggleOverlay } = useOverlays()
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
-
-  useEffect(() => {
-    if (!open) return
-    function onDown(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [open])
-
-  return (
-    <div className="time-layers-wrap" ref={ref}>
-      <button
-        className={`time-btn time-layers-btn${open ? ' is-open' : ''}`}
-        onClick={() => setOpen(o => !o)}
-        title="Map overlays"
-      >
-        Layers
-        <span className="time-layers-caret">{open ? '▴' : '▾'}</span>
-      </button>
-
-      {open && (
-        <div className="time-layers-dropdown">
-          <p className="time-layers-title">Overlays</p>
-          {OVERLAY_ITEMS.map(({ key, label, color }) => (
-            <button
-              key={key}
-              className="time-layers-row"
-              onClick={() => toggleOverlay(key)}
-            >
-              <span className="time-layers-dot" style={{ background: color }} />
-              <span className="time-layers-label">{label}</span>
-              <span className={`time-layers-toggle${overlays[key] ? ' is-on' : ''}`} />
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ── Main component ───────────────────────────────────────────────────────────
 
 export default function TimeBar() {
@@ -433,7 +387,7 @@ export default function TimeBar() {
 
       <div className="time-bar-divider" />
 
-      <LayersMenu />
+      <LayersPanel />
 
     </div>
   )

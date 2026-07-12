@@ -56,6 +56,26 @@ export default {
 
     const cache = caches.default
 
+    // ── Capability probe: does this key have Maps 2.0 (time-aware tiles)?
+    // Lets the client label weather honestly instead of silently showing
+    // current conditions for past/future sim times.
+    if (url.pathname === '/capabilities') {
+      const cacheKey = new Request(`${url.origin}/capabilities-v1`, { method: 'GET' })
+      const cached = await cache.match(cacheKey)
+      if (cached) return new Response(cached.body, { headers: { ...Object.fromEntries(cached.headers), ...cors } })
+
+      let maps2 = false
+      try {
+        const probe = await fetch(`${OWM_BASE_V2}/CL/0/0/0?appid=${env.OWM_KEY}&date=${Math.floor(Date.now() / 1000)}`)
+        maps2 = probe.ok
+      } catch { /* treat as unavailable */ }
+
+      const headers = { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=21600' }
+      const resp = new Response(JSON.stringify({ maps2 }), { status: 200, headers })
+      await cache.put(cacheKey, resp.clone())
+      return resp
+    }
+
     // ── OWM Maps 2.0 time-aware: /tiles/v2/{layer}/{z}/{x}/{y}.png?date={unix_s}
     const v2Match = url.pathname.match(/^\/tiles\/v2\/([^/]+)\/(\d+)\/(\d+)\/(\d+)\.png$/)
     if (v2Match) {

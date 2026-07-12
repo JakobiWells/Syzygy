@@ -2,31 +2,70 @@ import { createContext, useContext, useState, useCallback } from 'react'
 
 const OverlaysContext = createContext(null)
 
-export const OVERLAY_ITEMS = [
-  { key: 'night',           label: 'Night shade',       color: '#3b5280' },
-  { key: 'terrainShadow',   label: 'Terrain shadow',    color: '#555555' },
-  { key: 'eclipsePath',     label: 'Eclipse path',      color: '#1a1a1a' },
-  { key: 'eclipseCenter',   label: 'Center line',       color: '#f0a500' },
-  { key: 'greatestEclipse', label: 'Greatest eclipse',  color: '#f0a500' },
-  { key: 'greatestDuration',label: 'Greatest duration', color: '#7c3aed' },
-  { key: 'subSolar',        label: 'Sub-solar point',   color: '#f59e0b' },
-  { key: 'subLunar',        label: 'Sub-lunar point',   color: '#94a3b8' },
-  { key: 'issIndicator',    label: 'ISS indicator',     color: '#0ea5e9' },
-  { key: 'issPath',         label: 'ISS path',          color: '#0ea5e9' },
-  { key: 'equator',         label: 'Equator',           color: '#22c55e' },
-  { key: 'tropics',         label: 'Tropics',           color: '#f0a500' },
-  { key: 'timezones',       label: 'Time zones',        color: '#888888' },
-  { key: 'cityLights',      label: 'City lights',       color: '#fbbf24' },
-  { key: 'lightPollution',  label: 'Light pollution',   color: '#60a5fa' },
-  { key: 'weatherRadar',    label: 'Radar',             color: '#4ade80' },
-  { key: 'hotels',          label: 'Hotels',             color: '#f472b6' },
-  { key: 'weatherPrecip',   label: 'Precipitation',     color: '#34d399' },
-  { key: 'weatherCloud',    label: 'Cloud cover',       color: '#93c5fd' },
-  { key: 'weatherTemp',     label: 'Temperature',       color: '#f97316' },
-  { key: 'weatherWind',     label: 'Wind speed',        color: '#a78bfa' },
-  { key: 'weatherWindPtcl',label: 'Wind particles',    color: '#c4b5fd' },
-  { key: 'weatherPressure', label: 'Pressure',          color: '#fb923c' },
+// ── Layer catalog, grouped for the Layers panel ─────────────────────────────
+// `exclusive: true` on a group means its raster members behave like radio
+// buttons (stacked weather rasters are illegible); items with `independent`
+// opt out of that behavior.
+
+export const OVERLAY_GROUPS = [
+  {
+    id: 'map',
+    label: 'Map',
+    items: [
+      { key: 'night',         label: 'Night shade',    color: '#3b5280' },
+      { key: 'terrainShadow', label: 'Terrain shadow', color: '#555555' },
+      { key: 'cityLights',    label: 'City lights',    color: '#fbbf24' },
+      { key: 'equator',       label: 'Equator',        color: '#22c55e' },
+      { key: 'tropics',       label: 'Tropics',        color: '#f0a500' },
+      { key: 'timezones',     label: 'Time zones',     color: '#888888' },
+    ],
+  },
+  {
+    id: 'eclipse',
+    label: 'Eclipse',
+    items: [
+      { key: 'eclipsePath',      label: 'Shadow path',       color: '#1a1a1a' },
+      { key: 'eclipseCenter',    label: 'Center line',       color: '#f97316' },
+      { key: 'greatestEclipse',  label: 'Greatest eclipse',  color: '#f0a500' },
+      { key: 'greatestDuration', label: 'Greatest duration', color: '#7c3aed' },
+      { key: 'subSolar',         label: 'Sub-solar point',   color: '#f59e0b' },
+      { key: 'subLunar',         label: 'Sub-lunar point',   color: '#94a3b8' },
+    ],
+  },
+  {
+    id: 'satellites',
+    label: 'Satellites',
+    items: [
+      { key: 'issIndicator', label: 'ISS indicator', color: '#0ea5e9' },
+      { key: 'issPath',      label: 'ISS path',      color: '#0ea5e9' },
+    ],
+  },
+  {
+    id: 'weather',
+    label: 'Weather',
+    exclusive: true,
+    items: [
+      { key: 'weatherRadar',    label: 'Radar (live)',   color: '#4ade80' },
+      { key: 'weatherPrecip',   label: 'Precipitation',  color: '#34d399' },
+      { key: 'weatherCloud',    label: 'Cloud cover',    color: '#93c5fd' },
+      { key: 'weatherTemp',     label: 'Temperature',    color: '#f97316' },
+      { key: 'weatherWind',     label: 'Wind speed',     color: '#a78bfa' },
+      { key: 'weatherPressure', label: 'Pressure',       color: '#fb923c' },
+      { key: 'weatherWindPtcl', label: 'Wind particles', color: '#c4b5fd', independent: true },
+    ],
+  },
+  {
+    id: 'data',
+    label: 'Data maps',
+    items: [
+      { key: 'lightPollution', label: 'Light pollution', color: '#60a5fa' },
+      { key: 'hotels',         label: 'Hotels',          color: '#f472b6' },
+    ],
+  },
 ]
+
+// Flat list (legacy consumers + URL serialization)
+export const OVERLAY_ITEMS = OVERLAY_GROUPS.flatMap(g => g.items)
 
 export const OVERLAY_DEFAULTS = {
   night: true,
@@ -54,12 +93,24 @@ export const OVERLAY_DEFAULTS = {
   weatherPressure: false,
 }
 
+// Keys that turn each other off (stacked rasters are unreadable)
+const EXCLUSIVE_KEYS = OVERLAY_GROUPS
+  .filter(g => g.exclusive)
+  .flatMap(g => g.items.filter(i => !i.independent).map(i => i.key))
+
 export function OverlaysProvider({ children }) {
   const [overlays, setOverlays] = useState(OVERLAY_DEFAULTS)
   const [projection, setProjection] = useState('globe')
 
   const toggleOverlay = useCallback((key) => {
-    setOverlays(prev => ({ ...prev, [key]: !prev[key] }))
+    setOverlays(prev => {
+      const next = { ...prev, [key]: !prev[key] }
+      // Turning ON an exclusive layer turns its siblings off
+      if (next[key] && EXCLUSIVE_KEYS.includes(key)) {
+        for (const k of EXCLUSIVE_KEYS) if (k !== key) next[k] = false
+      }
+      return next
+    })
   }, [])
 
   // Bulk apply (URL restore): merge a partial { key: bool } patch

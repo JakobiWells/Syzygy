@@ -34,6 +34,7 @@ import {
 } from './issEngine'
 import SolarSystem from './SolarSystem'
 import WeatherLayer from './WeatherLayer'
+import RadarLayer from './RadarLayer'
 import WeatherLegend from './WeatherLegend'
 import WindParticles from './WindParticles'
 import HotelLayer from './HotelLayer'
@@ -662,6 +663,7 @@ function EclipsePageInner() {
   const [scoreData, setScoreData] = useState(null)
   const [transitPaths, setTransitPaths] = useState(null)
   const [selectedHotel, setSelectedHotel]   = useState(null)
+  const [radarStatus, setRadarStatus]   = useState(null)
 
   // Per-kind selections derived from the focused pin — the map renders the
   // focused event in full; other pins render lightweight footprints. A pin
@@ -1401,7 +1403,13 @@ function EclipsePageInner() {
         mapLoaded={mapLoaded}
         overlays={overlays}
       />
-      <WeatherLegend overlays={overlays} />
+      <RadarLayer
+        map={mapLoaded ? map.current : null}
+        mapLoaded={mapLoaded}
+        visible={!!overlays.weatherRadar}
+        onStatus={setRadarStatus}
+      />
+      <WeatherLegend overlays={overlays} radarStatus={radarStatus} />
       <WindParticles map={mapLoaded ? map.current : null} mapLoaded={mapLoaded} visible={overlays.weatherWindPtcl} />
       <HotelLayer
         map={mapLoaded ? map.current : null}

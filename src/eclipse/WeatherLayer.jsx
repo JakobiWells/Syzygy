@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useSimTime } from '../time/TimeContext'
 
-const PROXY_BASE = import.meta.env.VITE_WEATHER_PROXY_URL ?? 'http://localhost:8787'
+export const PROXY_BASE = import.meta.env.VITE_WEATHER_PROXY_URL ?? 'http://localhost:8787'
 
 // OWM Maps 2.0 updates on 3-hour intervals — round to nearest 3h so tile URLs
 // stay stable within a window and edge cache stays effective.
@@ -14,14 +14,8 @@ function owmUrl(layer, date) {
   return `${PROXY_BASE}/tiles/v2/${layer}/{z}/{x}/{y}.png?date=${roundTo3h(date)}`
 }
 
+// Radar is handled separately by RadarLayer (RainViewer, animated).
 const LAYERS = [
-  {
-    key:      'weatherRadar',
-    sourceId: 'wx-radar',
-    layerId:  'wx-radar-layer',
-    owmLayer: 'precipitation_new',
-    paint:    { 'raster-opacity': 0.9, 'raster-saturation': 0.6, 'raster-contrast': 0.4 },
-  },
   {
     key:      'weatherPrecip',
     sourceId: 'wx-precip',
