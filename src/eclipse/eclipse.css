@@ -1372,8 +1372,14 @@
 .lp-pin-row.is-focused .lp-pin-btn { color: #aaa; }
 .lp-pin-row.is-focused .lp-pin-btn:hover { background: rgba(255,255,255,0.15); color: #f9f9f7; }
 
+.lp-pin-eye { font-size: 0.72rem; }
+.lp-pin-eye.is-off { opacity: 0.35; }
 .lp-pin-jump { font-size: 0.6rem; }
 .lp-pin-remove { font-size: 0.9rem; line-height: 1; }
+
+/* Hidden-from-map pins render dimmed in the list */
+.lp-pin-row.is-hidden .lp-pin-icon,
+.lp-pin-row.is-hidden .lp-pin-main { opacity: 0.45; }
 
 /* ── Add event button ────────────────────────────── */
 
@@ -2841,15 +2847,6 @@
 .meteor-panel,
 .transit-panel {
   padding: 0;
-}
-
-/* Filter bar (mirrors .eclipse-filter-bar / .eclipse-filter-row) */
-.transit-filter-row {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.6rem 0.75rem;
-  border-bottom: 1px solid #e0e0dc;
 }
 
 /* Pill row + pills (mirrors .eclipse-type-pills / .eclipse-type-pill) */

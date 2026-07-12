@@ -1,14 +1,13 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useDeferredValue } from 'react'
 import { useSimTime } from '../time/TimeContext'
 import { useEventPins, toEvent } from './eventPins'
 import { computeTransits, computeElongations } from './solarSystemEvents'
+import { PeriodFilter, DEFAULT_PERIOD } from './ConjunctionsPanel'
 
-// Compute once on module load — covers 1990-2200
+// Compute once on module load — covers 1990-2200. Transits are rare enough
+// (a handful per century) that the full list needs no period filter.
 const TRANSIT_START = new Date('1990-01-01T00:00:00Z')
 export const ALL_TRANSITS  = computeTransits(TRANSIT_START, 40)
-
-const ELONG_START   = new Date(Date.now())
-export const ALL_ELONGATIONS = computeElongations(ELONG_START, 16)
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -37,7 +36,7 @@ const PLANET_FILTERS = [['all', 'All'], ['Mercury', '☿ Mercury'], ['Venus', '�
 
 function PlanetFilterRow({ filter, onChange }) {
   return (
-    <div className="transit-filter-row">
+    <div className="eclipse-filter-row">
       <span className="eclipse-filter-label">Planet</span>
       <div className="evt-pill-row">
         {PLANET_FILTERS.map(([val, label]) => (
@@ -50,6 +49,19 @@ function PlanetFilterRow({ filter, onChange }) {
       </div>
     </div>
   )
+}
+
+// Elongations recur ~7×/yr for Mercury, so they're computed per period
+// (deferred so slider drags don't trigger a search per pixel)
+function useElongationsInPeriod(yearRange) {
+  const deferred = useDeferredValue(yearRange)
+  return useMemo(() => {
+    const [y0, y1] = deferred
+    const start = new Date(Date.UTC(y0, 0, 1))
+    const end   = new Date(Date.UTC(y1 + 1, 0, 1))
+    const count = Math.min((y1 - y0 + 1) * 7 + 2, 40)
+    return computeElongations(start, count).filter(e => e.date >= start && e.date < end)
+  }, [deferred[0], deferred[1]])
 }
 
 // ── Transit Panel ─────────────────────────────────────────────────────────────
@@ -66,7 +78,9 @@ export default function PlanetaryTransitPanel() {
 
   return (
     <div className="transit-panel">
-      <PlanetFilterRow filter={filter} onChange={setFilter} />
+      <div className="eclipse-filter-bar">
+        <PlanetFilterRow filter={filter} onChange={setFilter} />
+      </div>
 
       {transits.map(t => {
         const evt    = toEvent('transit', t)
@@ -104,16 +118,22 @@ export function ElongationPanel() {
   const { simTime } = useSimTime()
   const { isPinned, togglePin } = useEventPins()
   const [filter, setFilter] = useState('all')
+  const [yearRange, setYearRange] = useState(DEFAULT_PERIOD)
 
+  const all = useElongationsInPeriod(yearRange)
   const elongations = useMemo(() =>
-    ALL_ELONGATIONS.filter(e => filter === 'all' || e.planet === filter),
-    [filter]
+    all.filter(e => filter === 'all' || e.planet === filter).slice(0, 30),
+    [all, filter]
   )
 
   return (
     <div className="transit-panel">
-      <PlanetFilterRow filter={filter} onChange={setFilter} />
+      <div className="eclipse-filter-bar">
+        <PlanetFilterRow filter={filter} onChange={setFilter} />
+        <PeriodFilter yearRange={yearRange} onChange={setYearRange} />
+      </div>
 
+      {elongations.length === 0 && <div className="eclipse-browser-status">No elongations in this period</div>}
       {elongations.map(e => {
         const evt    = toEvent('elongation', e)
         const active = isPinned(evt.id)

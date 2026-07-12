@@ -60,7 +60,7 @@ export default function LeftPanel({
   onSelectPlace,
 }) {
   const { simTime } = useSimTime()
-  const { pins, focusId, focused, focusPin, removePin, jumpTo } = useEventPins()
+  const { pins, focusId, focused, focusPin, removePin, jumpTo, hiddenIds, toggleHidden } = useEventPins()
   const [addOpen, setAddOpen] = useState(false)
   const issActive = simTime.getTime() >= ISS_LAUNCH_MS
 
@@ -104,29 +104,37 @@ export default function LeftPanel({
         {pins.length === 0 && (
           <div className="lp-pins-empty">No events pinned yet — add one below.</div>
         )}
-        {pins.map(p => (
-          <div
-            key={p.id}
-            className={`lp-pin-row${p.id === focusId ? ' is-focused' : ''}`}
-            onClick={() => focusPin(p.id)}
-          >
-            <span className="lp-pin-icon">{p.icon}</span>
-            <span className="lp-pin-main">
-              <span className="lp-pin-title">{p.title}</span>
-              <span className="lp-pin-date">{p.dateLabel}</span>
-            </span>
-            <button
-              className="lp-pin-btn lp-pin-jump"
-              title="Jump the clock to this event"
-              onClick={e => { e.stopPropagation(); focusPin(p.id); jumpTo(p) }}
-            >▶</button>
-            <button
-              className="lp-pin-btn lp-pin-remove"
-              title="Remove from map"
-              onClick={e => { e.stopPropagation(); removePin(p.id) }}
-            >×</button>
-          </div>
-        ))}
+        {pins.map(p => {
+          const hidden = hiddenIds.has(p.id)
+          return (
+            <div
+              key={p.id}
+              className={`lp-pin-row${p.id === focusId ? ' is-focused' : ''}${hidden ? ' is-hidden' : ''}`}
+              onClick={() => focusPin(p.id)}
+            >
+              <span className="lp-pin-icon">{p.icon}</span>
+              <span className="lp-pin-main">
+                <span className="lp-pin-title">{p.title}</span>
+                <span className="lp-pin-date">{p.dateLabel}</span>
+              </span>
+              <button
+                className={`lp-pin-btn lp-pin-eye${hidden ? ' is-off' : ''}`}
+                title={hidden ? 'Show on map' : 'Hide from map'}
+                onClick={e => { e.stopPropagation(); toggleHidden(p.id) }}
+              >👁</button>
+              <button
+                className="lp-pin-btn lp-pin-jump"
+                title="Jump the clock to this event"
+                onClick={e => { e.stopPropagation(); focusPin(p.id); jumpTo(p) }}
+              >▶</button>
+              <button
+                className="lp-pin-btn lp-pin-remove"
+                title="Remove from map"
+                onClick={e => { e.stopPropagation(); removePin(p.id) }}
+              >×</button>
+            </div>
+          )
+        })}
       </div>
 
       {/* ── Add event ────────────────────────────────────────────────── */}

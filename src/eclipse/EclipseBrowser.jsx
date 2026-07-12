@@ -47,7 +47,7 @@ const DUR_CFG = {
   lunar: { max: 112,  step: 1,  unit: 'min', toSec: v => v * 60 },
 }
 
-function RangeSlider({ min, max, low, high, onChange, formatLabel, step = 1, unit = '' }) {
+export function RangeSlider({ min, max, low, high, onChange, formatLabel, step = 1, unit = '' }) {
   const [lowText,  setLowText]  = useState(String(low))
   const [highText, setHighText] = useState(String(high))
 

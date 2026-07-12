@@ -153,6 +153,7 @@ export function EventPinsProvider({ children }) {
   const { setSimTime } = useSimTime()
   const [pins, setPins] = useState([])
   const [focusId, setFocusId] = useState(null)
+  const [hiddenIds, setHiddenIds] = useState(() => new Set())
 
   const addPin = useCallback((evt, focus = true) => {
     if (!evt) return
@@ -166,6 +167,20 @@ export function EventPinsProvider({ children }) {
   const removePin = useCallback((id) => {
     setPins(prev => prev.filter(p => p.id !== id))
     setFocusId(prev => (prev === id ? null : prev))
+    setHiddenIds(prev => {
+      if (!prev.has(id)) return prev
+      const s = new Set(prev); s.delete(id); return s
+    })
+  }, [])
+
+  // Eye toggle: hide/show a pin's rendering on the map (it stays pinned
+  // and keeps its scrubber marker)
+  const toggleHidden = useCallback((id) => {
+    setHiddenIds(prev => {
+      const s = new Set(prev)
+      s.has(id) ? s.delete(id) : s.add(id)
+      return s
+    })
   }, [])
 
   const togglePin = useCallback((evt) => {
@@ -199,8 +214,8 @@ export function EventPinsProvider({ children }) {
 
   return (
     <EventPinsContext.Provider value={{
-      pins, focusId, focused,
-      addPin, removePin, togglePin, focusPin, clearPins, jumpTo, isPinned,
+      pins, focusId, focused, hiddenIds,
+      addPin, removePin, togglePin, focusPin, clearPins, jumpTo, isPinned, toggleHidden,
     }}>
       {children}
     </EventPinsContext.Provider>

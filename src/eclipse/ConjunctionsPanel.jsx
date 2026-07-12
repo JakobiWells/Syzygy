@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useDeferredValue } from 'react'
 import * as A from 'astronomy-engine'
 import { useSimTime } from '../time/TimeContext'
 import { useEventPins, toEvent } from './eventPins'
+import { RangeSlider } from './EclipseBrowser'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -58,7 +59,7 @@ export function findEvents(type, targetRelLon, startDate, count) {
 
 function PlanetFilter({ selected, onToggle }) {
   return (
-    <div className="transit-filter-row">
+    <div className="eclipse-filter-row">
       <span className="eclipse-filter-label">Planet</span>
       <div className="evt-pill-row">
         {Object.entries(PLANET_COLOR).map(([planet, color]) => {
@@ -73,6 +74,28 @@ function PlanetFilter({ selected, onToggle }) {
           )
         })}
       </div>
+    </div>
+  )
+}
+
+// ── Period (year range) filter ───────────────────────────────────────────────
+// Catalogs are no longer anchored to sim time, so each panel gets its own
+// period control. Default: this year through next.
+
+export const CUR_YEAR = new Date().getUTCFullYear()
+export const DEFAULT_PERIOD = [CUR_YEAR, CUR_YEAR + 1]
+export const PERIOD_MIN = 1900
+export const PERIOD_MAX = 2150
+
+export function PeriodFilter({ yearRange, onChange }) {
+  return (
+    <div className="eclipse-filter-row">
+      <span className="eclipse-filter-label">Period</span>
+      <RangeSlider
+        min={PERIOD_MIN} max={PERIOD_MAX} step={1}
+        low={yearRange[0]} high={yearRange[1]}
+        onChange={onChange}
+      />
     </div>
   )
 }
@@ -109,20 +132,25 @@ function EventList({ events, kind, simTime, emptyMsg }) {
 
 // ── Oppositions Panel ────────────────────────────────────────────────────────
 
-function useUpcomingEvents(type, targetRelLon) {
-  // Anchor to the real-world clock (not the moving sim time) so the list
-  // never reshuffles underneath a selection.
-  const anchor = useMemo(() => new Date(), [])
+// Compute events covering [y0, y1] inclusive. Deferred so slider drags don't
+// run an astronomy search per pixel.
+function useEventsInPeriod(type, targetRelLon, yearRange) {
+  const deferred = useDeferredValue(yearRange)
   return useMemo(() => {
-    const start = new Date(Date.UTC(anchor.getUTCFullYear() - 1, 0, 1))
-    return findEvents(type, targetRelLon, start, 12)
-  }, [anchor, type, targetRelLon])
+    const [y0, y1] = deferred
+    const start = new Date(Date.UTC(y0, 0, 1))
+    const end   = new Date(Date.UTC(y1 + 1, 0, 1))
+    // ≥1 event per planet-year is plenty (longest synodic period ≈ 2.1 yr)
+    const count = Math.min(y1 - y0 + 2, 30)
+    return findEvents(type, targetRelLon, start, count).filter(e => e.date >= start && e.date < end)
+  }, [type, targetRelLon, deferred[0], deferred[1]])
 }
 
-export function OppositionsPanel() {
+function SunEventPanel({ type, targetRelLon, emptyMsg, note }) {
   const { simTime } = useSimTime()
   const [planetFilter, setPlanetFilter] = useState(new Set())
-  const events = useUpcomingEvents('opposition', 180)
+  const [yearRange, setYearRange] = useState(DEFAULT_PERIOD)
+  const events = useEventsInPeriod(type, targetRelLon, yearRange)
 
   const visible = useMemo(() =>
     events.filter(e => planetFilter.size === 0 || planetFilter.has(e.planet)).slice(0, 30),
@@ -135,34 +163,24 @@ export function OppositionsPanel() {
 
   return (
     <div className="transit-panel">
-      <PlanetFilter selected={planetFilter} onToggle={togglePlanet} />
-      <EventList events={visible} kind="opposition" simTime={simTime} emptyMsg="No oppositions found" />
-      <div className="transit-note">Planet opposite Sun · best for viewing</div>
+      <div className="eclipse-filter-bar">
+        <PlanetFilter selected={planetFilter} onToggle={togglePlanet} />
+        <PeriodFilter yearRange={yearRange} onChange={setYearRange} />
+      </div>
+      <EventList events={visible} kind={type} simTime={simTime} emptyMsg={emptyMsg} />
+      <div className="transit-note">{note}</div>
     </div>
   )
+}
+
+export function OppositionsPanel() {
+  return <SunEventPanel type="opposition" targetRelLon={180}
+    emptyMsg="No oppositions in this period" note="Planet opposite Sun · best for viewing" />
 }
 
 // ── Conjunctions Panel ───────────────────────────────────────────────────────
 
 export default function ConjunctionsPanel() {
-  const { simTime } = useSimTime()
-  const [planetFilter, setPlanetFilter] = useState(new Set())
-  const events = useUpcomingEvents('conjunction', 0)
-
-  const visible = useMemo(() =>
-    events.filter(e => planetFilter.size === 0 || planetFilter.has(e.planet)).slice(0, 30),
-    [events, planetFilter]
-  )
-
-  function togglePlanet(p) {
-    setPlanetFilter(prev => { const s = new Set(prev); s.has(p) ? s.delete(p) : s.add(p); return s })
-  }
-
-  return (
-    <div className="transit-panel">
-      <PlanetFilter selected={planetFilter} onToggle={togglePlanet} />
-      <EventList events={visible} kind="conjunction" simTime={simTime} emptyMsg="No conjunctions found" />
-      <div className="transit-note">Planet near Sun · difficult to observe</div>
-    </div>
-  )
+  return <SunEventPanel type="conjunction" targetRelLon={0}
+    emptyMsg="No conjunctions in this period" note="Planet near Sun · difficult to observe" />
 }

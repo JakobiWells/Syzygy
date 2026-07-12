@@ -12,8 +12,9 @@ import { buildLunarZones } from './lunarVisibility'
 import LocationPanel from './LocationPanel'
 import LeftPanel from './LeftPanel'
 import { meteorGeoJSON, SHOWERS, peakDate } from './MeteorShowers'
-import { ALL_TRANSITS, ALL_ELONGATIONS } from './PlanetaryTransits'
+import { ALL_TRANSITS } from './PlanetaryTransits'
 import { findEvents } from './ConjunctionsPanel'
+import { computeElongations } from './solarSystemEvents'
 import { EventPinsProvider, useEventPins, toEvent } from './eventPins'
 import BortleLegend from './BortleLegend'
 import TimeBar from '../time/TimeBar'
@@ -448,10 +449,15 @@ function initLayers(map) {
   map.addLayer({ id: 'planetary-transit-outline', type: 'line', source: 'planetary-transit-source',
     paint: { 'line-color': '#fbbf24', 'line-width': 1.5, 'line-opacity': 0.5, 'line-dasharray': [4, 3] } })
 
-  // Pinned (non-focused) eclipse center lines — dashed footprints for comparison
+  // Pinned (non-focused) eclipse footprints: dashed center line + solid
+  // shadow-corridor outline, in grey so the focused eclipse stands apart
   map.addSource('pinned-paths-source', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
+  map.addLayer({ id: 'pinned-limits-line', type: 'line', source: 'pinned-paths-source',
+    filter: ['==', ['get', 'part'], 'limit'],
+    paint: { 'line-color': '#8a8a85', 'line-width': 1.25, 'line-opacity': 0.75 } })
   map.addLayer({ id: 'pinned-paths-line', type: 'line', source: 'pinned-paths-source',
-    paint: { 'line-color': '#1a1a1a', 'line-width': 1.5, 'line-opacity': 0.5, 'line-dasharray': [2, 2] } })
+    filter: ['==', ['get', 'part'], 'center'],
+    paint: { 'line-color': '#8a8a85', 'line-width': 1.5, 'line-opacity': 0.65, 'line-dasharray': [2, 2] } })
 
   // Meteor shower visibility zones (rendered largest→smallest so inner zones override outer)
   map.addSource('meteor-source', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
@@ -577,8 +583,17 @@ function resolvePinId(id, catalog, lunarCatalog) {
       const shower = m && SHOWERS.find(s => s.id === m[1])
       return shower ? toEvent('meteor', { shower, peakDate: peakDate(shower, Number(m[2])) }) : null
     }
-    case 'tr': { const t = ALL_TRANSITS.find(t => t.id === rest);    return t ? toEvent('transit', t) : null }
-    case 'el': { const e = ALL_ELONGATIONS.find(e => e.id === rest); return e ? toEvent('elongation', e) : null }
+    case 'tr': { const t = ALL_TRANSITS.find(t => t.id === rest); return t ? toEvent('transit', t) : null }
+    case 'el': {
+      // elong-<planet>-<year>-<month>: recompute around that year
+      const ym = rest.match(/-(\d{4})-\d{1,2}$/)
+      if (!ym) return null
+      try {
+        const start = new Date(Date.UTC(Number(ym[1]) - 1, 9, 1))
+        const e = computeElongations(start, 14).find(e => e.id === rest)
+        return e ? toEvent('elongation', e) : null
+      } catch { return null }
+    }
     case 'cj':
     case 'op': {
       const kind = prefix === 'cj' ? 'conjunction' : 'opposition'
@@ -602,7 +617,7 @@ function EclipsePageInner() {
   const { catalog: lunarCatalog, loading: lunarLoading } = useLunarCatalog()
   const { simTime, isPlaying, setSimTime } = useSimTime()
   const { overlays, projection, setOverlaysBulk } = useOverlays()
-  const { pins, focused, addPin, focusPin } = useEventPins()
+  const { pins, focused, addPin, focusPin, hiddenIds } = useEventPins()
 
   const mapContainer = useRef(null)
   const map = useRef(null)
@@ -626,10 +641,12 @@ function EclipsePageInner() {
   const [selectedHotel, setSelectedHotel]   = useState(null)
 
   // Per-kind selections derived from the focused pin — the map renders the
-  // focused event in full; other pins render lightweight footprints.
-  const selectedEclipse = focused?.kind === 'eclipse' ? focused.payload : null
-  const selectedMeteor = focused?.kind === 'meteor' ? focused.payload : NO_METEOR
-  const selectedPlanetaryTransit = focused?.kind === 'transit' ? focused.payload : null
+  // focused event in full; other pins render lightweight footprints. A pin
+  // hidden via its eye toggle renders nothing even while focused.
+  const focusedShown = focused && !hiddenIds.has(focused.id) ? focused : null
+  const selectedEclipse = focusedShown?.kind === 'eclipse' ? focusedShown.payload : null
+  const selectedMeteor = focusedShown?.kind === 'meteor' ? focusedShown.payload : NO_METEOR
+  const selectedPlanetaryTransit = focusedShown?.kind === 'transit' ? focusedShown.payload : null
 
   // Focusing a pinned event dismisses any active ISS transit view
   useEffect(() => {
@@ -844,8 +861,9 @@ function EclipsePageInner() {
     map.current.getSource('south-limit-source')?.setData(south)
     map.current.getSource('shadow-source')?.setData(startShadow)
 
-    // Annular eclipses: shift the centerline color to a warmer amber
-    const clColor = eclipse.type?.[0] === 'A' ? '#d97706' : '#f0a500'
+    // Focused eclipse gets a vivid orange center line (annulars a warmer
+    // amber) — clearly apart from the grey footprints of other pinned paths
+    const clColor = eclipse.type?.[0] === 'A' ? '#d97706' : '#f97316'
     if (map.current.getLayer('center-line')) {
       map.current.setPaintProperty('center-line', 'line-color', clColor)
     }
@@ -1298,27 +1316,40 @@ function EclipsePageInner() {
     }
   }, [focused?.id])
 
-  // Lightweight footprints for pinned-but-not-focused solar eclipses:
-  // dashed center lines so several paths can be compared at once.
-  useEffect(() => {
-    if (!mapLoaded) return
-    const m = map.current
-    const src = m?.getSource('pinned-paths-source')
-    if (!src) return
+  // Footprints for pinned-but-not-focused solar eclipses: dashed center line
+  // plus the shadow corridor outline, so several paths compare at once.
+  const pinnedFootprints = useMemo(() => {
     const features = []
     for (const p of pins) {
-      if (p.kind !== 'eclipse' || p.id === focused?.id) continue
+      if (p.kind !== 'eclipse' || p.id === focused?.id || hiddenIds.has(p.id)) continue
       const e = p.payload
       if (e.kind === 'lunar' || !e.centerLine?.length) continue
       const segs = Array.isArray(e.centerLine[0][0]) ? e.centerLine : [e.centerLine]
       for (const seg of segs) {
         if (seg.length >= 2) {
-          features.push({ type: 'Feature', properties: { id: p.id }, geometry: { type: 'LineString', coordinates: seg } })
+          features.push({ type: 'Feature', properties: { id: p.id, part: 'center' }, geometry: { type: 'LineString', coordinates: seg } })
+        }
+      }
+      // Shadow corridor outline along the longest segment
+      if (e.widthKm > 0) {
+        const longest = segs.reduce((best, s) => (s.length > best.length ? s : best), [])
+        if (longest.length >= 3) {
+          try {
+            const corr = buildCorridorFeatures(turf.lineString(longest), e.widthKm)
+            for (const line of [corr.northLine, corr.southLine]) {
+              if (line) features.push({ ...line, properties: { id: p.id, part: 'limit' } })
+            }
+          } catch { /* skip malformed path */ }
         }
       }
     }
-    src.setData({ type: 'FeatureCollection', features })
-  }, [pins, focused?.id, mapLoaded])
+    return features
+  }, [pins, focused?.id, hiddenIds])
+
+  useEffect(() => {
+    if (!mapLoaded) return
+    map.current?.getSource('pinned-paths-source')?.setData({ type: 'FeatureCollection', features: pinnedFootprints })
+  }, [pinnedFootprints, mapLoaded])
 
   // ─── Render ──────────────────────────────────────────────────────────────
 
