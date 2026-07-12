@@ -3023,32 +3023,102 @@
   width: 28px;
 }
 
-/* ── Orrery expand button (on the small widget) ─────────────────────────── */
+/* ── Sky diagram card (bottom-right tabbed widget) ──────────────────────── */
 
-.orrery-expand-btn {
+.diagram-card {
   position: absolute;
-  top: -2px;
-  left: -2px;
-  z-index: 11;
-  background: rgba(0,0,0,0.55);
-  border: 1px solid rgba(255,255,255,0.18);
-  border-radius: 5px;
-  color: rgba(255,255,255,0.75);
-  font-size: 13px;
-  width: 24px;
-  height: 24px;
+  right: 52px;
+  bottom: 34px;
+  z-index: 10;
+  width: 182px;
+  background: #f9f9f7;
+  border: 1px solid #e0e0dc;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.diagram-card-header {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0.4rem 0.35rem 0.25rem 0.6rem;
+}
+
+.diagram-card-title {
+  flex: 1;
+  font-size: 0.58rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #999;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.diagram-card-btn {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: background 0.12s, color 0.12s;
   padding: 0;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #999;
+  font-family: inherit;
+  font-size: 0.7rem;
   line-height: 1;
+  transition: background 0.1s, color 0.1s;
 }
-.orrery-expand-btn:hover {
-  background: rgba(0,0,0,0.8);
-  color: #fff;
+.diagram-card-btn:hover { background: rgba(0,0,0,0.08); color: #1a1a1a; }
+
+.diagram-card-tabs {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0 0.5rem 0.35rem;
 }
+.diagram-card-tabs .evt-pill { flex: 1; text-align: center; }
+
+.diagram-card-body {
+  display: flex;
+  justify-content: center;
+  padding: 0 0.4rem 0.4rem;
+}
+.diagram-card-body svg {
+  width: 158px;
+  height: 158px;
+  /* Edge labels (Equinox/Vern) sit right at the viewBox boundary */
+  overflow: visible;
+}
+
+/* Collapsed state: small round button in the same corner */
+.diagram-fab {
+  position: absolute;
+  right: 52px;
+  bottom: 34px;
+  z-index: 10;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: #f9f9f7;
+  border: 1px solid #e0e0dc;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  font-size: 1rem;
+  line-height: 1;
+  color: #1a1a1a;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.diagram-fab:hover { background: #f0f0ee; }
 
 /* ── Orrery full-screen overlay ─────────────────────────────────────────── */
 

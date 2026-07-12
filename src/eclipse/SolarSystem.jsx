@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useSimTime } from '../time/TimeContext'
 import * as A from 'astronomy-engine'
 import OrreryPanel from './OrreryPanel'
@@ -289,38 +289,68 @@ function EarthMoonDiagram({ T }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// Combined widget
+// Combined widget — a single tabbed card in the bottom-right corner.
+// One diagram shows at a time; ⤢ opens the full orrery overlay; the card
+// collapses to a small round button. State persists across sessions.
 // ══════════════════════════════════════════════════════════════════════════════
+
+const STORAGE_KEY = 'syzygy-diagram-card'
+
+function loadPrefs() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? {} } catch { return {} }
+}
+
+const TABS = [
+  { id: 'system', label: 'System', title: 'Solar System' },
+  { id: 'orbit',  label: 'Orbit',  title: 'Earth’s Orbit' },
+  { id: 'moon',   label: 'Moon',   title: 'Lunar Inclination' },
+]
+
 export default function SolarSystem() {
   const { simTime } = useSimTime()
   const [expanded, setExpanded] = useState(false)
+  const [open, setOpen] = useState(() => loadPrefs().open ?? true)
+  const [tab, setTab]   = useState(() => {
+    const t = loadPrefs().tab
+    return TABS.some(x => x.id === t) ? t : 'system'
+  })
+
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ open, tab })) } catch {}
+  }, [open, tab])
+
   const T       = (simTime.getTime() / 86400000 - 10957.5) / 36525
   const astTime = useMemo(() => A.MakeTime(simTime), [simTime])
+  const active  = TABS.find(t => t.id === tab) ?? TABS[0]
 
   return (
     <>
       {expanded && <OrreryPanel onClose={() => setExpanded(false)} />}
-      <div style={{
-        position: 'absolute',
-        bottom: 14,
-        right: 14,
-        zIndex: 10,
-        display: 'flex',
-        flexDirection: 'row',
-        gap: 10,
-        alignItems: 'center',
-      }}>
-        <EarthOrbitDiagram T={T} />
-        <div style={{ position: 'relative' }}>
-          <SolarSystemDiagram astTime={astTime} />
-          <button
-            className="orrery-expand-btn"
-            onClick={() => setExpanded(true)}
-            title="Open solar system orrery"
-          >⤢</button>
+      {open ? (
+        <div className="diagram-card">
+          <div className="diagram-card-header">
+            <span className="diagram-card-title">{active.title}</span>
+            <button className="diagram-card-btn" title="Open full orrery" onClick={() => setExpanded(true)}>⤢</button>
+            <button className="diagram-card-btn" title="Collapse" onClick={() => setOpen(false)}>▾</button>
+          </div>
+          <div className="diagram-card-tabs">
+            {TABS.map(t => (
+              <button
+                key={t.id}
+                className={`evt-pill${t.id === tab ? ' is-on' : ''}`}
+                onClick={() => setTab(t.id)}
+              >{t.label}</button>
+            ))}
+          </div>
+          <div className="diagram-card-body">
+            {tab === 'orbit'  && <EarthOrbitDiagram T={T} />}
+            {tab === 'system' && <SolarSystemDiagram astTime={astTime} />}
+            {tab === 'moon'   && <EarthMoonDiagram T={T} />}
+          </div>
         </div>
-        <EarthMoonDiagram T={T} />
-      </div>
+      ) : (
+        <button className="diagram-fab" title="Show sky diagrams" onClick={() => setOpen(true)}>☉</button>
+      )}
     </>
   )
 }
