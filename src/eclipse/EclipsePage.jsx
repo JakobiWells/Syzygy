@@ -76,22 +76,69 @@ const TIMEZONE_DATA = {
 
 // ─── Eclipse data adapter ──────────────────────────────────────────────────
 
+// Rejoin catalog path segments across artificial seams. The catalog splits
+// the center line at antimeridian crossings (and polar gaps), but a corridor
+// built per segment stops one sample short on each side of the seam — a
+// visible lens-shaped hole in the shadow band. Seams whose endpoints are
+// spherically close are stitched back together with longitudes unwrapped
+// (so the joined line may run past ±180; the antimeridian splitter handles
+// rendering). Genuinely distant gaps stay separate segments.
+const SEAM_JOIN_KM = 1500
+
+function haversineKm([lon1, lat1], [lon2, lat2]) {
+  const R = 6371, D = Math.PI / 180
+  const dLat = (lat2 - lat1) * D
+  const dLon = (lon2 - lon1) * D
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * D) * Math.cos(lat2 * D) * Math.sin(dLon / 2) ** 2
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)))
+}
+
+function unwrapAppend(out, [lon, lat]) {
+  if (out.length === 0) { out.push([lon, lat]); return }
+  let L = lon
+  const prev = out[out.length - 1][0]
+  while (L - prev > 180) L -= 360
+  while (prev - L > 180) L += 360
+  out.push([L, lat])
+}
+
+function joinSegments(rawSegs) {
+  const joined = []
+  let cur = []
+  for (const seg of rawSegs) {
+    if (seg.length < 2) continue
+    if (cur.length === 0) {
+      for (const p of seg) unwrapAppend(cur, p)
+      continue
+    }
+    const gapKm = haversineKm(cur[cur.length - 1], seg[0])
+    if (gapKm <= SEAM_JOIN_KM) {
+      for (const p of seg) unwrapAppend(cur, p)
+    } else {
+      joined.push(cur)
+      cur = []
+      for (const p of seg) unwrapAppend(cur, p)
+    }
+  }
+  if (cur.length >= 2) joined.push(cur)
+  return joined
+}
+
 function adaptEclipse(entry) {
   if (!entry) return null
   const cl = entry.centerLine
-  let centerLineCoords = null   // longest segment (hybrid split + polar heuristics)
-  let centerLineSegs   = null   // ALL segments — each drawn separately so
-                                // antimeridian/polar-gap paths keep their tails
-  let animationCoords  = null   // shadow track: all segments concatenated (full path)
+  let centerLineCoords = null   // longest joined segment (hybrid split + polar heuristics)
+  let centerLineSegs   = null   // joined segments — seams stitched, real gaps kept
+  let animationCoords  = null   // shadow track: everything concatenated (full path)
 
   if (cl && cl.length > 0) {
-    const segs = Array.isArray(cl[0][0]) ? cl : [cl]
-    centerLineSegs   = segs.filter(seg => seg.length >= 2)
+    const segs = joinSegments(Array.isArray(cl[0][0]) ? cl : [cl])
+    centerLineSegs   = segs.length ? segs : null
     centerLineCoords = segs.reduce((best, seg) => seg.length > best.length ? seg : best, [])
     animationCoords  = segs.flat()
   }
   if (centerLineCoords && centerLineCoords.length < 3) centerLineCoords = null
-  if (!centerLineSegs?.length) centerLineSegs = null
   if (animationCoords && animationCoords.length < 2) animationCoords = null
 
   // Use catalog peakFrac directly — the ±30 min search window handles any catalog timing errors.
@@ -1408,7 +1455,7 @@ function EclipsePageInner() {
       if (p.kind !== 'eclipse' || p.id === focused?.id || hiddenIds.has(p.id)) continue
       const e = p.payload
       if (e.kind === 'lunar' || !e.centerLine?.length) continue
-      const segs = Array.isArray(e.centerLine[0][0]) ? e.centerLine : [e.centerLine]
+      const segs = joinSegments(Array.isArray(e.centerLine[0][0]) ? e.centerLine : [e.centerLine])
       for (const seg of segs) {
         if (seg.length < 2) continue
         const centerLine = sanitizeLine(seg, { id: p.id, part: 'center' })
