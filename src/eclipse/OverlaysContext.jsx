@@ -52,6 +52,7 @@ export const OVERLAY_GROUPS = [
     id: 'data',
     label: 'Data maps',
     items: [
+      { key: 'aurora',         label: 'Aurora forecast', color: '#34d399' },
       { key: 'lightPollution', label: 'Light pollution', color: '#60a5fa' },
       { key: 'hotels',         label: 'Hotels',          color: '#f472b6' },
     ],
@@ -76,6 +77,7 @@ export const OVERLAY_DEFAULTS = {
   tropics: false,
   timezones: false,
   cityLights: false,
+  aurora: false,
   lightPollution: false,
   hotels:          false,
   weatherRadar:    false,

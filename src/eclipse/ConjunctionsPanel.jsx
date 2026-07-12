@@ -84,7 +84,7 @@ function PlanetFilter({ selected, onToggle }) {
 
 export const CUR_YEAR = new Date().getUTCFullYear()
 export const DEFAULT_PERIOD = [CUR_YEAR, CUR_YEAR + 1]
-export const PERIOD_MIN = 1900
+export const PERIOD_MIN = 1950
 export const PERIOD_MAX = 2150
 
 export function PeriodFilter({ yearRange, onChange }) {

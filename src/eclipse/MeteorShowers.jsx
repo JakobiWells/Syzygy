@@ -1,6 +1,7 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useSimTime } from '../time/TimeContext'
 import { useEventPins, toEvent } from './eventPins'
+import { PeriodFilter, DEFAULT_PERIOD } from './ConjunctionsPanel'
 import * as A from 'astronomy-engine'
 
 const DEG = Math.PI / 180
@@ -96,40 +97,30 @@ export function peakDate(shower, year) {
   return new Date(Date.UTC(year, shower.month, shower.day, 0, 0, 0))
 }
 
-function nextPeak(shower, from) {
-  const y = from.getUTCFullYear()
-  let d   = peakDate(shower, y)
-  if (d < from) d = peakDate(shower, y + 1)
-  return d
-}
-
 function fmtDate(d) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
-}
-
-function strength(zhr) {
-  // Three filled / empty dots
-  if (zhr >= 100) return '●●●'
-  if (zhr >= 30)  return '●●○'
-  return '●○○'
 }
 
 export default function MeteorShowerPanel() {
   const { simTime } = useSimTime()
   const { isPinned, togglePin } = useEventPins()
+  const [yearRange, setYearRange] = useState(DEFAULT_PERIOD)
 
-  // Anchor the list to the real-world clock, not the moving sim time, so rows
-  // never reshuffle underneath a selection.
-  const anchor = useMemo(() => new Date(), [])
+  // Every shower × year in the selected period (each year's peak differs in
+  // moonlight, which is the main viewing-quality factor besides the rate)
+  const events = useMemo(() => {
+    const [y0, y1] = yearRange
+    const out = []
+    for (let y = y0; y <= y1; y++) {
+      for (const s of SHOWERS) {
+        out.push(toEvent('meteor', { shower: s, peakDate: peakDate(s, y) }))
+      }
+    }
+    return out.sort((a, b) => a.peakMs - b.peakMs).slice(0, 40)
+  }, [yearRange[0], yearRange[1]])
 
-  const showers = useMemo(() =>
-    SHOWERS.map(s => ({ ...s, peak: nextPeak(s, anchor) }))
-           .sort((a, b) => a.peak - b.peak),
-    [anchor]
-  )
-
-  function daysLabel(peak) {
-    const days = Math.floor((peak - simTime) / 86_400_000)
+  function daysLabel(peakMs) {
+    const days = Math.floor((peakMs - simTime.getTime()) / 86_400_000)
     if (days < 0)  return null
     if (days === 0) return 'tonight'
     if (days === 1) return 'tomorrow'
@@ -138,19 +129,28 @@ export default function MeteorShowerPanel() {
 
   return (
     <div className="meteor-panel">
-      {showers.map(s => {
-        const evt    = toEvent('meteor', { shower: s, peakDate: s.peak })
+      <div className="eclipse-filter-bar">
+        <PeriodFilter yearRange={yearRange} onChange={setYearRange} />
+      </div>
+      {events.map(evt => {
+        const s      = evt.payload.shower
         const active = isPinned(evt.id)
-        const days   = daysLabel(s.peak)
+        const days   = daysLabel(evt.peakMs)
+        const moonPct = evt.moonPct != null ? Math.round(evt.moonPct * 100) : null
         return (
-          <button key={s.id} className={`meteor-row${active ? ' meteor-row--active' : ''}`} onClick={() => togglePin(evt)}>
+          <button key={evt.id} className={`meteor-row${active ? ' meteor-row--active' : ''}`} onClick={() => togglePin(evt)}>
             <div className="meteor-row-top">
               <span className="meteor-name">{s.name}</span>
-              <span className="meteor-str" title={`~${s.zhr}/hr at peak ZHR`}>{strength(s.zhr)}</span>
+              <span className="meteor-str">~{s.zhr}/hr</span>
             </div>
             <div className="meteor-row-sub">
-              <span className="meteor-date">{fmtDate(s.peak)}</span>
+              <span className="meteor-date">{fmtDate(new Date(evt.peakMs))}</span>
               {days && <span className="meteor-days">{days}</span>}
+              {evt.moonIcon && (
+                <span className="meteor-moon" title={`Moon ${moonPct}% illuminated at peak — ${moonPct <= 35 ? 'good dark skies' : moonPct >= 75 ? 'strong moonlight' : 'some moonlight'}`}>
+                  {evt.moonIcon}{moonPct != null && <span className="meteor-moon-pct">{moonPct}%</span>}
+                </span>
+              )}
             </div>
           </button>
         )

@@ -15,6 +15,8 @@ import { meteorGeoJSON, SHOWERS, peakDate } from './MeteorShowers'
 import { ALL_TRANSITS } from './PlanetaryTransits'
 import { findEvents } from './ConjunctionsPanel'
 import { computeElongations } from './solarSystemEvents'
+import { fullMoonsInRange } from './MoonsPanel'
+import { perihelionsInRange } from './CometsPanel'
 import { EventPinsProvider, useEventPins, toEvent } from './eventPins'
 import BortleLegend from './BortleLegend'
 import TimeBar from '../time/TimeBar'
@@ -34,6 +36,7 @@ import {
 } from './issEngine'
 import SolarSystem from './SolarSystem'
 import RainViewerLayers from './RainViewerLayers'
+import AuroraLayer from './AuroraLayer'
 import WeatherLegend from './WeatherLegend'
 import WindParticles from './WindParticles'
 import HotelLayer from './HotelLayer'
@@ -628,6 +631,29 @@ function resolvePinId(id, catalog, lunarCatalog) {
         return e ? toEvent(kind, e) : null
       } catch { return null }
     }
+    case 'mo': {
+      // mo-YYYY-MM-DD: recompute full moons for that year
+      const y = Number(rest.slice(0, 4))
+      if (!isFinite(y)) return null
+      try {
+        const m = fullMoonsInRange(y, y)
+          .map(m => toEvent('moon', m))
+          .find(e => e.id === id)
+        return m ?? null
+      } catch { return null }
+    }
+    case 'cm': {
+      // cm-<cometId>-<year>
+      const m = rest.match(/^(.+)-(\d{4})$/)
+      if (!m) return null
+      try {
+        const y = Number(m[2])
+        const evt = perihelionsInRange(y, y)
+          .map(p => toEvent('comet', p))
+          .find(e => e.id === id)
+        return evt ?? null
+      } catch { return null }
+    }
     default: return null
   }
 }
@@ -640,7 +666,7 @@ function EclipsePageInner() {
   const { catalog: lunarCatalog, loading: lunarLoading } = useLunarCatalog()
   const { simTime, isPlaying, setSimTime } = useSimTime()
   const { overlays, projection, setOverlaysBulk } = useOverlays()
-  const { pins, focused, addPin, focusPin, hiddenIds } = useEventPins()
+  const { pins, focused, addPin, focusPin, hiddenIds, updatePin } = useEventPins()
 
   const mapContainer = useRef(null)
   const map = useRef(null)
@@ -726,6 +752,24 @@ function EclipsePageInner() {
       southFC:   { type: 'FeatureCollection', features: southLines },
     }
   }, [centerLineSegFeatures])
+
+  // Refine the focused eclipse pin's time window with the exact per-point
+  // timestamps (the catalog's linear peakFrac estimate drifts by minutes on
+  // polar paths, which made the scrubber window misalign with the shadow).
+  useEffect(() => {
+    if (!focused || focused.kind !== 'eclipse') return
+    const ts = eclipse?.animationTimestamps
+    if (!ts?.length) return
+    const startMs = ts[0], endMs = ts[ts.length - 1]
+    if (Math.abs(startMs - focused.startMs) > 60_000 || Math.abs(endMs - focused.endMs) > 60_000) {
+      // If the playhead sits at the old approximate start (a fresh jump),
+      // snap it onto the real path start too
+      if (Math.abs(simTimeRef.current.getTime() - focused.startMs) < 5_000) {
+        setSimTime(new Date(startMs))
+      }
+      updatePin(focused.id, { startMs, endMs })
+    }
+  }, [eclipse, focused?.id])
 
   // Keep refs in sync for animation/click handlers (refs escape stale closures)
   useEffect(() => {
@@ -1219,7 +1263,8 @@ function EclipsePageInner() {
       return
     }
     try {
-      src.setData(getDayPolygon(new Date(selectedPlanetaryTransit.date + 'T12:00:00Z')))
+      // Visibility zone = the hemisphere in daylight at mid-transit
+      src.setData(getDayPolygon(new Date(selectedPlanetaryTransit.peak)))
     } catch {
       src.setData({ type: 'FeatureCollection', features: [] })
     }
@@ -1402,6 +1447,11 @@ function EclipsePageInner() {
         mapLoaded={mapLoaded}
         radarVisible={!!overlays.weatherRadar}
         onStatus={setWeatherStatus}
+      />
+      <AuroraLayer
+        map={mapLoaded ? map.current : null}
+        mapLoaded={mapLoaded}
+        visible={!!overlays.aurora}
       />
       <WeatherLegend overlays={overlays} weatherStatus={weatherStatus} />
       <WindParticles map={mapLoaded ? map.current : null} mapLoaded={mapLoaded} visible={overlays.weatherWindPtcl} />

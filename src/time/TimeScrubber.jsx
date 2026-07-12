@@ -210,7 +210,10 @@ export default function TimeScrubber() {
           <button
             key={p.id}
             className={`time-scrubber-marker${p.id === focusId ? ' is-focused' : ''}`}
-            style={{ left: `${msToFrac(p.peakMs) * 100}%` }}
+            style={{
+              left: `${msToFrac(p.peakMs) * 100}%`,
+              ...(p.iconColor && p.id !== focusId ? { color: p.iconColor } : {}),
+            }}
             title={`${p.title} — ${p.dateLabel}`}
             onPointerDown={e => e.stopPropagation()}
             onClick={() => jumpTo(p)}

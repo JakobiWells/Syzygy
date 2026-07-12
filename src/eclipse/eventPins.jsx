@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useMemo } from 'react'
+import * as A from 'astronomy-engine'
 import { useSimTime } from '../time/TimeContext'
 
 // ─── Unified event model ─────────────────────────────────────────────────────
@@ -51,6 +52,24 @@ function eclipsePeakMs(entry) {
 
 const PLANET_GLYPH = { Mercury: '☿', Venus: '♀', Mars: '♂', Jupiter: '♃', Saturn: '♄', Uranus: '♅', Neptune: '♆' }
 
+// Eclipse type → icon color (matches the catalog type badges)
+const SOLAR_TYPE_COLOR = { T: '#1a1a1a', A: '#d97706', H: '#7c3aed', P: '#9ca3af' }
+const LUNAR_TYPE_COLOR = { T: '#b91c1c', P: '#9ca3af', N: '#c4b5fd' }
+
+// Moon phase icon at a given time (angle 0 = new, 180 = full)
+export function moonPhaseIcon(ms) {
+  try {
+    const angle = A.MoonPhase(new Date(ms))
+    const icons = ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘']
+    return icons[Math.round(angle / 45) % 8]
+  } catch { return null }
+}
+
+// Fraction of the Moon illuminated at a given time (0–1)
+export function moonIllumination(ms) {
+  try { return A.Illumination(A.Body.Moon, new Date(ms)).phase_fraction } catch { return null }
+}
+
 export function toEvent(kind, payload) {
   if (!payload) return null
 
@@ -70,11 +89,13 @@ export function toEvent(kind, payload) {
         startMs = peakMs - 1.5 * HOUR
         endMs   = peakMs + 1.5 * HOUR
       }
-      const typeName = TYPE_NAMES[e.type?.[0]] ?? ''
+      const fam = e.type?.[0] ?? 'P'
+      const typeName = TYPE_NAMES[fam] ?? ''
       return {
         id: `${isLunar ? 'le' : 'se'}-${e.cat}`,
         kind: 'eclipse',
-        icon: isLunar ? '☽' : '☀',
+        icon: isLunar ? '☽' : '●',
+        iconColor: isLunar ? (LUNAR_TYPE_COLOR[fam] ?? '#9ca3af') : (SOLAR_TYPE_COLOR[fam] ?? '#1a1a1a'),
         title: `${typeName} ${isLunar ? 'Lunar' : 'Solar'} Eclipse`,
         dateLabel: formatEventDate(e.date),
         startMs, peakMs, endMs,
@@ -88,10 +109,45 @@ export function toEvent(kind, payload) {
       return {
         id: `ms-${shower.id}-${peakDate.getUTCFullYear()}`,
         kind: 'meteor',
-        icon: '☄',
+        icon: '✷',
+        iconColor: '#7c3aed',
+        moonIcon: moonPhaseIcon(peakMs),
+        moonPct: moonIllumination(peakMs),
         title: `${shower.name} Meteor Shower`,
         dateLabel: `Peak ${fmtShortDate(peakMs)} · ~${shower.zhr}/hr`,
         startMs: peakMs - 1.5 * DAY, peakMs, endMs: peakMs + 1.5 * DAY,
+        payload,
+      }
+    }
+
+    case 'moon': {
+      const m = payload
+      const peakMs = +new Date(m.date)
+      const label = m.variant === 'super' ? 'Supermoon'
+        : m.variant === 'micro' ? 'Micromoon' : 'Full Moon'
+      const d = new Date(peakMs)
+      return {
+        id: `mo-${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`,
+        kind: 'moon',
+        icon: '🌕',
+        title: label,
+        dateLabel: `${fmtShortDate(peakMs)} · ${Math.round(m.distanceKm / 100) / 10}k km`,
+        startMs: peakMs - 12 * HOUR, peakMs, endMs: peakMs + 12 * HOUR,
+        payload: m,
+      }
+    }
+
+    case 'comet': {
+      const { comet, periMs } = payload
+      return {
+        id: `cm-${comet.id}-${new Date(periMs).getUTCFullYear()}`,
+        kind: 'comet',
+        icon: '☄',
+        iconColor: '#0e7490',
+        title: comet.name,
+        dateLabel: `Perihelion ${fmtShortDate(periMs)}`,
+        // Naked-eye window is roughly weeks around perihelion
+        startMs: periMs - 30 * DAY, peakMs: periMs, endMs: periMs + 30 * DAY,
         payload,
       }
     }
@@ -155,13 +211,36 @@ export function EventPinsProvider({ children }) {
   const [focusId, setFocusId] = useState(null)
   const [hiddenIds, setHiddenIds] = useState(() => new Set())
 
+  // The only sanctioned ways the clock moves: jumping to an event (explicitly
+  // via ▶/markers, or implicitly when a new event is pinned).
+  const jumpTo = useCallback((evt) => {
+    if (!evt) return
+    const solarWithPath = evt.kind === 'eclipse' && evt.payload?.kind !== 'lunar' && evt.payload?.pathDurationS
+    setSimTime(new Date(solarWithPath ? evt.startMs : evt.peakMs))
+  }, [setSimTime])
+
   const addPin = useCallback((evt, focus = true) => {
     if (!evt) return
     setPins(prev => {
       if (prev.some(p => p.id === evt.id)) return prev
       return [...prev, evt].sort((a, b) => a.peakMs - b.peakMs)
     })
-    if (focus) setFocusId(evt.id)
+    if (focus) {
+      setFocusId(evt.id)
+      jumpTo(evt)
+    }
+  }, [jumpTo])
+
+  // Refine a pin in place (e.g. exact path timing computed after focus)
+  const updatePin = useCallback((id, patch) => {
+    setPins(prev => {
+      const idx = prev.findIndex(p => p.id === id)
+      if (idx < 0) return prev
+      const next = [...prev]
+      next[idx] = { ...next[idx], ...patch }
+      next.sort((a, b) => a.peakMs - b.peakMs)
+      return next
+    })
   }, [])
 
   const removePin = useCallback((id) => {
@@ -192,21 +271,14 @@ export function EventPinsProvider({ children }) {
         return prev.filter(p => p.id !== evt.id)
       }
       setFocusId(evt.id)
+      jumpTo(evt)
       return [...prev, evt].sort((a, b) => a.peakMs - b.peakMs)
     })
-  }, [])
+  }, [jumpTo])
 
   const focusPin = useCallback((id) => setFocusId(id), [])
 
   const clearPins = useCallback(() => { setPins([]); setFocusId(null) }, [])
-
-  // The only sanctioned way an event moves the clock. Events with a path play
-  // from the start so the animation runs; instant events jump straight to peak.
-  const jumpTo = useCallback((evt) => {
-    if (!evt) return
-    const solarWithPath = evt.kind === 'eclipse' && evt.payload?.kind !== 'lunar' && evt.payload?.pathDurationS
-    setSimTime(new Date(solarWithPath ? evt.startMs : evt.peakMs))
-  }, [setSimTime])
 
   const focused = useMemo(() => pins.find(p => p.id === focusId) ?? null, [pins, focusId])
 
@@ -215,7 +287,7 @@ export function EventPinsProvider({ children }) {
   return (
     <EventPinsContext.Provider value={{
       pins, focusId, focused, hiddenIds,
-      addPin, removePin, togglePin, focusPin, clearPins, jumpTo, isPinned, toggleHidden,
+      addPin, removePin, togglePin, focusPin, clearPins, jumpTo, isPinned, toggleHidden, updatePin,
     }}>
       {children}
     </EventPinsContext.Provider>

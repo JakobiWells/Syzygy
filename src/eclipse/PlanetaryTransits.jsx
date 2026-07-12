@@ -32,23 +32,42 @@ function timeLabel(date, simTime) {
   return `in ${Math.round(diff / 365.25)}yr`
 }
 
-const PLANET_FILTERS = [['all', 'All'], ['Mercury', '☿ Mercury'], ['Venus', '♀ Venus']]
+// Only Mercury and Venus: inferior planets are the only ones that transit the
+// Sun or reach greatest elongation as seen from Earth.
+const INNER_PLANET_COLOR = { Mercury: '#64748b', Venus: '#b45309' }
 
-function PlanetFilterRow({ filter, onChange }) {
+// Multi-select planet pills — same pattern as the conjunctions/oppositions
+// panels (empty selection = all)
+function PlanetFilterRow({ selected, onToggle }) {
   return (
     <div className="eclipse-filter-row">
       <span className="eclipse-filter-label">Planet</span>
       <div className="evt-pill-row">
-        {PLANET_FILTERS.map(([val, label]) => (
-          <button
-            key={val}
-            className={`evt-pill${filter === val ? ' is-on' : ''}`}
-            onClick={() => onChange(val)}
-          >{label}</button>
-        ))}
+        {Object.entries(INNER_PLANET_COLOR).map(([planet, color]) => {
+          const on = selected.has(planet)
+          return (
+            <button
+              key={planet}
+              className={`evt-pill${on ? ' is-on' : ''}`}
+              style={on ? { background: color, borderColor: color } : {}}
+              onClick={() => onToggle(planet)}
+            >{planet}</button>
+          )
+        })}
       </div>
     </div>
   )
+}
+
+function usePlanetFilter() {
+  const [selected, setSelected] = useState(new Set())
+  const onToggle = p => setSelected(prev => {
+    const s = new Set(prev)
+    s.has(p) ? s.delete(p) : s.add(p)
+    return s
+  })
+  const matches = planet => selected.size === 0 || selected.has(planet)
+  return { selected, onToggle, matches }
 }
 
 // Elongations recur ~7×/yr for Mercury, so they're computed per period
@@ -69,17 +88,17 @@ function useElongationsInPeriod(yearRange) {
 export default function PlanetaryTransitPanel() {
   const { simTime } = useSimTime()
   const { isPinned, togglePin } = useEventPins()
-  const [filter, setFilter] = useState('all')
+  const { selected, onToggle, matches } = usePlanetFilter()
 
   const transits = useMemo(() =>
-    ALL_TRANSITS.filter(t => filter === 'all' || t.planet === filter),
-    [filter]
+    ALL_TRANSITS.filter(t => matches(t.planet)),
+    [selected]
   )
 
   return (
     <div className="transit-panel">
       <div className="eclipse-filter-bar">
-        <PlanetFilterRow filter={filter} onChange={setFilter} />
+        <PlanetFilterRow selected={selected} onToggle={onToggle} />
       </div>
 
       {transits.map(t => {
@@ -117,19 +136,19 @@ export default function PlanetaryTransitPanel() {
 export function ElongationPanel() {
   const { simTime } = useSimTime()
   const { isPinned, togglePin } = useEventPins()
-  const [filter, setFilter] = useState('all')
+  const { selected, onToggle, matches } = usePlanetFilter()
   const [yearRange, setYearRange] = useState(DEFAULT_PERIOD)
 
   const all = useElongationsInPeriod(yearRange)
   const elongations = useMemo(() =>
-    all.filter(e => filter === 'all' || e.planet === filter).slice(0, 30),
-    [all, filter]
+    all.filter(e => matches(e.planet)).slice(0, 30),
+    [all, selected]
   )
 
   return (
     <div className="transit-panel">
       <div className="eclipse-filter-bar">
-        <PlanetFilterRow filter={filter} onChange={setFilter} />
+        <PlanetFilterRow selected={selected} onToggle={onToggle} />
         <PeriodFilter yearRange={yearRange} onChange={setYearRange} />
       </div>
 
@@ -146,8 +165,8 @@ export function ElongationPanel() {
           >
             <div className="transit-row-top">
               <span className="transit-planet-badge">{e.planet === 'Mercury' ? '☿' : '♀'}</span>
-              <span className="transit-name">{e.visibility === 'morning' ? '🌅' : '🌇'} {e.planet}</span>
-              <span className="transit-dur">{e.angleDeg}°</span>
+              <span className="transit-name">{e.planet}</span>
+              <span className="transit-dur">{e.angleDeg}° · {e.visibility}</span>
             </div>
             <div className="transit-row-sub">
               <span className="transit-date">{fmtTransitDate(e.date)}</span>

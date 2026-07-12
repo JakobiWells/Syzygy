@@ -2940,11 +2940,26 @@
 .transit-row--active .transit-dur { color: #aaa; }
 
 .meteor-str {
-  font-size: 9px;
-  letter-spacing: 1.5px;
+  font-size: 0.65rem;
+  font-weight: 600;
   color: #7c3aed;
 }
 .meteor-row--active .meteor-str { color: #c4b5fd; }
+
+.meteor-moon {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.meteor-moon-pct {
+  font-size: 0.62rem;
+  color: #888;
+}
+.meteor-row--active .meteor-moon-pct { color: #aaa; }
 
 .transit-row-sub,
 .meteor-row-sub {
@@ -3417,6 +3432,52 @@
   color: rgba(251, 191, 36, 0.9);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   backdrop-filter: blur(6px);
+}
+
+/* ── Aurora legend ───────────────────────────────── */
+
+.aurora-legend {
+  position: absolute;
+  bottom: 2.5rem;
+  left: 1rem;
+  z-index: 20;
+  width: 240px;
+  background: rgba(10, 10, 18, 0.82);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  padding: 6px 10px 8px;
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.aurora-legend-title {
+  font-size: 0.65rem;
+  color: rgba(255,255,255,0.55);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 5px;
+}
+
+.aurora-legend-grad {
+  height: 12px;
+  border-radius: 3px;
+  background: linear-gradient(to right,
+    rgba(16,185,129,0.15), #10b981 30%, #a3e635 60%, #facc15 80%, #ef4444 100%);
+}
+
+.aurora-legend-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+  font-size: 0.6rem;
+  color: rgba(255,255,255,0.65);
+}
+
+.aurora-legend-note {
+  margin-top: 5px;
+  font-size: 0.6rem;
+  color: rgba(255,255,255,0.5);
 }
 
 /* ── Hotel card ──────────────────────────────────── */

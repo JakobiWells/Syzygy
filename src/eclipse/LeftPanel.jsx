@@ -4,6 +4,8 @@ import { IssSatellitePanel } from './LocationPanel'
 import MeteorShowerPanel from './MeteorShowers'
 import PlanetaryTransitPanel, { ElongationPanel } from './PlanetaryTransits'
 import ConjunctionsPanel, { OppositionsPanel } from './ConjunctionsPanel'
+import MoonsPanel from './MoonsPanel'
+import CometsPanel from './CometsPanel'
 import { useSimTime } from '../time/TimeContext'
 import { useEventPins } from './eventPins'
 import { ISS_LAUNCH_MS } from './issEngine'
@@ -105,7 +107,7 @@ export default function LeftPanel({
                 onClick={() => focusPin(open ? null : p.id)}
               >
                 <span className={`lp-pin-caret${open ? ' is-open' : ''}`}>▾</span>
-                <span className="lp-pin-icon">{p.icon}</span>
+                <span className="lp-pin-icon" style={p.iconColor ? { color: p.iconColor } : undefined}>{p.icon}</span>
                 <span className="lp-pin-main">
                   <span className="lp-pin-title">{p.title}</span>
                   <span className="lp-pin-date">{p.dateLabel}</span>
@@ -198,6 +200,14 @@ export default function LeftPanel({
 
           <Section title="Meteor Showers">
             <MeteorShowerPanel />
+          </Section>
+
+          <Section title="Moons">
+            <MoonsPanel />
+          </Section>
+
+          <Section title="Comets">
+            <CometsPanel />
           </Section>
         </div>
       )}
