@@ -22,6 +22,7 @@ import TimeScrubber from '../time/TimeScrubber'
 import { useSimTime } from '../time/TimeContext'
 import { useOverlays, OVERLAY_DEFAULTS } from './OverlaysContext'
 import { getNightPolygon, getDayPolygon } from './daynight'
+import { sanitizePolygon, sanitizeLine } from './polarGeometry'
 import { TerrainShadowLayer } from './terrainShadowLayer'
 import SunIndicator from './SunIndicator'
 import MoonIndicator from './MoonIndicator'
@@ -217,10 +218,12 @@ function buildCorridorFeatures(centerLine, umbraWidthKm) {
     southPts.push(turf.destination(pt, half, norm(brng + 90), { units: 'kilometers' }).geometry.coordinates)
   }
 
+  // Sanitize: near the poles the offset points cross the antimeridian, which
+  // Mapbox renders as a giant fan wedge unless the geometry is split there.
   return {
-    polygon: turf.polygon([[...northPts, ...[...southPts].reverse(), northPts[0]]]),
-    northLine: turf.lineString(northPts),
-    southLine: turf.lineString(southPts),
+    polygon: sanitizePolygon(turf.polygon([[...northPts, ...[...southPts].reverse(), northPts[0]]])),
+    northLine: sanitizeLine(northPts),
+    southLine: sanitizeLine(southPts),
   }
 }
 
@@ -692,18 +695,15 @@ function EclipsePageInner() {
     return centerLineSegFeatures[idx >= 0 ? idx : 0]
   }, [centerLineSegFeatures])
 
-  const centerLineFC = useMemo(() => (
-    centerLineSegFeatures ? { type: 'FeatureCollection', features: centerLineSegFeatures } : null
-  ), [centerLineSegFeatures])
-
-  // Full-path line for shadow animation (all segments; no bezier — just raw coords so
-  // turf.along distances correspond accurately to the full pathDurationS timing).
-  const animationLineFeature = useMemo(() => {
-    const coords = eclipse?.animationCoords
-    if (!coords || coords.length < 2) return centerLineFeature
-    const isPolar = coords.some(([, lat]) => Math.abs(lat) > 75)
-    return turf.lineString(isPolar ? densifyPolarCoords(coords) : coords)
-  }, [selectedEclipse?.cat])
+  // Display version of the center line: split at the antimeridian and
+  // clamped below the polar caps so it can't smear into Mapbox's pole fan
+  const centerLineFC = useMemo(() => {
+    if (!centerLineSegFeatures) return null
+    const features = centerLineSegFeatures
+      .map(f => sanitizeLine(f.geometry.coordinates))
+      .filter(Boolean)
+    return { type: 'FeatureCollection', features }
+  }, [centerLineSegFeatures])
 
   // Corridor per segment; polygons kept individually for point-in-path checks
   const corridorFeatures = useMemo(() => {
@@ -883,7 +883,7 @@ function EclipsePageInner() {
     const cl    = centerLineFC ?? EMPTY_LINE
 
     const startShadow = hasPath
-      ? turf.circle(turf.point(eclipse.animationCoords[0]), eclipse.umbraWidth / 2, { steps: 64, units: 'kilometers' })
+      ? sanitizePolygon(turf.circle(turf.point(eclipse.animationCoords[0]), eclipse.umbraWidth / 2, { steps: 64, units: 'kilometers' }))
       : EMPTY_CIRCLE
 
     map.current.getSource('umbra-source')?.setData(poly)
@@ -925,9 +925,10 @@ function EclipsePageInner() {
         const annularEnd   = turf.lineSliceAlong(centerLineFeature, d2, totalLen, { units: 'kilometers' })
         const totalMid     = turf.lineSliceAlong(centerLineFeature, d1, d2, { units: 'kilometers' })
         map.current.getSource('hybrid-annular-source')?.setData({
-          type: 'FeatureCollection', features: [annularStart, annularEnd],
+          type: 'FeatureCollection',
+          features: [annularStart, annularEnd].map(f => sanitizeLine(f.geometry.coordinates)).filter(Boolean),
         })
-        map.current.getSource('hybrid-total-source')?.setData(totalMid)
+        map.current.getSource('hybrid-total-source')?.setData(sanitizeLine(totalMid.geometry.coordinates) ?? EMPTY_LINE)
       } catch {
         map.current.getSource('hybrid-annular-source')?.setData(EMPTY_FC)
         map.current.getSource('hybrid-total-source')?.setData(EMPTY_LINE)
@@ -942,7 +943,7 @@ function EclipsePageInner() {
       // Scale radius by magnitude: mag≈1 → ~3800 km, mag≈0 → ~400 km
       const mag = eclipse.mag ?? 0.5
       const penumbraRadiusKm = Math.round(400 + mag * 3400)
-      const penumbra = turf.circle(turf.point(eclipse.greatest), penumbraRadiusKm, { steps: 80, units: 'kilometers' })
+      const penumbra = sanitizePolygon(turf.circle(turf.point(eclipse.greatest), penumbraRadiusKm, { steps: 80, units: 'kilometers' }))
       map.current.getSource('penumbra-source')?.setData(penumbra)
     } else {
       map.current.getSource('penumbra-source')?.setData(EMPTY_POLY)
@@ -1064,9 +1065,15 @@ function EclipsePageInner() {
       if (ts[mid] <= tNow) lo = mid; else hi = mid
     }
     const frac = (tNow - ts[lo]) / (ts[hi] - ts[lo])
-    const lon = rawCoords[lo][0] + frac * (rawCoords[hi][0] - rawCoords[lo][0])
+    // Unwrap longitude so interpolation across the antimeridian takes the
+    // short way around instead of sweeping across the whole map
+    const lonLo = rawCoords[lo][0]
+    let lonHi = rawCoords[hi][0]
+    if (lonHi - lonLo > 180) lonHi -= 360
+    else if (lonHi - lonLo < -180) lonHi += 360
+    const lon = lonLo + frac * (lonHi - lonLo)
     const lat = rawCoords[lo][1] + frac * (rawCoords[hi][1] - rawCoords[lo][1])
-    const shadow = turf.circle(turf.point([lon, lat]), eclipse.umbraWidth / 2, { steps: 64, units: 'kilometers' })
+    const shadow = sanitizePolygon(turf.circle(turf.point([lon, lat]), eclipse.umbraWidth / 2, { steps: 64, units: 'kilometers' }))
     map.current.getSource('shadow-source')?.setData(shadow)
   }, [simTime, mapLoaded, selectedEclipse?.cat])
 
@@ -1358,7 +1365,8 @@ function EclipsePageInner() {
       const segs = Array.isArray(e.centerLine[0][0]) ? e.centerLine : [e.centerLine]
       for (const seg of segs) {
         if (seg.length < 2) continue
-        features.push({ type: 'Feature', properties: { id: p.id, part: 'center' }, geometry: { type: 'LineString', coordinates: seg } })
+        const centerLine = sanitizeLine(seg, { id: p.id, part: 'center' })
+        if (centerLine) features.push(centerLine)
         // Shadow corridor outline for every segment (tails included)
         if (e.widthKm > 0) {
           try {
