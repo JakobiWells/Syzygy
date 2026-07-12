@@ -11,16 +11,16 @@ const STATUS_META = {
   predicted:    { label: 'Predicted',     color: '#a78bfa' },
 }
 
-function IssSVG({ size }) {
+function IssSVG({ size, color = '#0ea5e9', darkColor = '#0369a1' }) {
   const c = size / 2
   const w = size * 0.22
   const h = size * 0.14
   const arm = size * 0.34
   return (
     <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} style={{ display: 'block', flexShrink: 0 }}>
-      <line x1={c - arm} y1={c} x2={c - w} y2={c} stroke="#0369a1" strokeWidth={size * 0.07} strokeLinecap="round" />
-      <line x1={c + w} y1={c} x2={c + arm} y2={c} stroke="#0369a1" strokeWidth={size * 0.07} strokeLinecap="round" />
-      <rect x={c - w} y={c - h} width={w * 2} height={h * 2} rx={size * 0.03} fill="#0ea5e9" stroke="#0369a1" strokeWidth={size * 0.05} />
+      <line x1={c - arm} y1={c} x2={c - w} y2={c} stroke={darkColor} strokeWidth={size * 0.07} strokeLinecap="round" />
+      <line x1={c + w} y1={c} x2={c + arm} y2={c} stroke={darkColor} strokeWidth={size * 0.07} strokeLinecap="round" />
+      <rect x={c - w} y={c - h} width={w * 2} height={h * 2} rx={size * 0.03} fill={color} stroke={darkColor} strokeWidth={size * 0.05} />
     </svg>
   )
 }
@@ -159,7 +159,7 @@ export default function IssIndicator({ map, onFlyTo, lat, lng }) {
     return (
       <div className={`iss-ind${showTip ? ' tip-open' : ''}`} style={{ left: pos.x, top: pos.y, opacity, transform: `translate(-50%, -50%) scale(${scale})`, transition: 'opacity 0.4s, transform 0.4s' }}
         onClick={handleClick} title={`${getActiveSatellite().name} — click to fly here`}>
-        <IssSVG size={28} />
+        <IssSVG size={28} color={getActiveSatellite().color} darkColor={getActiveSatellite().darkColor} />
         {statusMeta && (
           <div className="iss-status-label" style={{ color: statusMeta.color }}>
             <span className="iss-status-dot" style={{ background: statusMeta.color }} />
@@ -177,9 +177,9 @@ export default function IssIndicator({ map, onFlyTo, lat, lng }) {
     <div className="iss-ind iss-ind--edge" style={{ left: pos.x, top: pos.y, opacity, transform: `translate(-50%, -50%) scale(${scale})`, transition: 'opacity 0.4s, transform 0.4s' }}
       onClick={handleClick} title={`${getActiveSatellite().name} — click to fly here`}>
       <div className="iss-ind-badge" style={{ transform: `rotate(${pos.angle}rad)` }}>
-        <IssSVG size={13} />
+        <IssSVG size={13} color={getActiveSatellite().color} darkColor={getActiveSatellite().darkColor} />
         <svg viewBox="0 0 8 14" width="8" height="14" style={{ display: 'block' }}>
-          <polyline points="2,2 6,7 2,12" fill="none" stroke="#0369a1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <polyline points="2,2 6,7 2,12" fill="none" stroke={getActiveSatellite().darkColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </div>
       {showTip && <div className="sub-point-tip sub-point-tip--iss" style={{ transform: 'none', left: 18, top: -10 }}>{tipLabel}</div>}

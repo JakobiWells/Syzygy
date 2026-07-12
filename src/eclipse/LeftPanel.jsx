@@ -74,6 +74,7 @@ export default function LeftPanel({
   onTransitPaths,
   onSelectTransit,
   onSelectPlace,
+  onSatelliteChange,
 }) {
   const { simTime } = useSimTime()
   const { pins, focusId, focusPin, removePin, jumpTo, hiddenIds, toggleHidden } = useEventPins()
@@ -171,14 +172,8 @@ export default function LeftPanel({
                 onTransitPaths={onTransitPaths}
                 onSelectTransit={onSelectTransit}
                 onSelectPlace={onSelectPlace}
+                onSatelliteChange={onSatelliteChange}
               />
-              <div className="iss-ring-legend">
-                <div className="iss-ring-legend-title">Visibility ring</div>
-                <div className="iss-ring-legend-row"><span className="iss-ring-legend-dot" style={{ background: '#22c55e' }} />Visible from location</div>
-                <div className="iss-ring-legend-row"><span className="iss-ring-legend-dot" style={{ background: '#f59e0b' }} />Sky too bright</div>
-                <div className="iss-ring-legend-row"><span className="iss-ring-legend-dot" style={{ background: '#94a3b8' }} />ISS in Earth's shadow</div>
-                <div className="iss-ring-legend-row"><span className="iss-ring-legend-dot" style={{ background: '#0ea5e9' }} />Below viewing angle</div>
-              </div>
             </Section>
           )}
 

@@ -30,16 +30,19 @@ export const SATELLITES = [
     id: 'iss', name: 'ISS', catnr: 25544,
     launchMs: ISS_LAUNCH_MS,
     discRadiusDeg: 0.009, baseMag: -1.3,
+    color: '#0ea5e9', darkColor: '#0369a1',
   },
   {
     id: 'tiangong', name: 'Tiangong', catnr: 48274,
     launchMs: Date.UTC(2021, 3, 29),   // Tianhe core module
     discRadiusDeg: 0.004, baseMag: 0.2,
+    color: '#f472b6', darkColor: '#be185d',
   },
   {
     id: 'hst', name: 'Hubble', catnr: 20580,
     launchMs: Date.UTC(1990, 3, 24),
     discRadiusDeg: 0.0015, baseMag: 2.0,
+    color: '#a78bfa', darkColor: '#6d28d9',
   },
 ]
 
@@ -808,7 +811,7 @@ function shadowToEcf(lngDeg, latDeg) {
   return geodeticToEcf({ latitude: latDeg * DEG, longitude: lngDeg * DEG, height: 0 })
 }
 
-function findIssTransits(lat, lng, target, { start = new Date(), hoursAhead = 24 * 30, altM = 0 } = {}) {
+function findIssTransits(lat, lng, target, { start = new Date(), hoursAhead = 24 * 30, altM = 0, searchRadiusKm = 300 } = {}) {
   if (!getSatrecInfo(start).rec || lat == null || lng == null) return []
   if (!isFinite(lat) || !isFinite(lng)) return []
 
@@ -821,11 +824,11 @@ function findIssTransits(lat, lng, target, { start = new Date(), hoursAhead = 24
   const cosLat = Math.cos(latR), sinLat = Math.sin(latR)
   const upX = cosLat * Math.cos(lngR), upY = cosLat * Math.sin(lngR), upZ = sinLat
 
-  // Find all transits whose shadow centerline passes within SEARCH_RADIUS of the observer.
-  // The visibility band is only ~3-5 km wide, so requiring the observer to be inside the band
-  // would miss transits passing a few km away. Instead we collect all transits within a large
-  // radius and show the band on the map so the user can judge proximity visually.
-  const SEARCH_RADIUS = 300  // km — collect transits whose shadow comes this close
+  // Find all transits whose shadow centerline passes within searchRadiusKm of
+  // the observer (how far you're willing to travel). The visibility band is
+  // only ~3-5 km wide, so requiring the observer to be inside the band would
+  // miss transits passing nearby; the band renders on the map for judging.
+  const SEARCH_RADIUS = Math.max(2, searchRadiusKm)
   const COARSE_MS  = 5_000  // shadow moves ≤ 35 km per coarse step
   const FINE_MS    = 50     // 50 ms fine scan
   const TRIGGER_KM = SEARCH_RADIUS + 50  // switch to fine scan before entering search radius

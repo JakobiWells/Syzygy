@@ -32,7 +32,7 @@ import IssIndicator from './IssIndicator'
 import {
   loadIssTle, loadIssArchive, getIssGroundTrackPhases, issPathGeoJSON,
   getIssPosition, getIssVisibilityRadiusKm, getIssVisibilityStatus,
-  ISS_LAUNCH_MS,
+  ISS_LAUNCH_MS, getActiveSatellite,
 } from './issEngine'
 import SolarSystem from './SolarSystem'
 import RainViewerLayers from './RainViewerLayers'
@@ -639,6 +639,27 @@ function applyLayerVisibility(map, { showPath, showCenter }, eclipseType, isLuna
 // Stable "no meteor" value so derived-selection effects don't retrigger
 const NO_METEOR = { shower: null, peakDate: null }
 
+// Compact key for the satellite visibility ring, bottom-left of the map
+const RING_KEY_ITEMS = [
+  ['#22c55e', 'Visible'],
+  ['#f59e0b', 'Sky too bright'],
+  ['#94a3b8', "In Earth's shadow"],
+  ['#0ea5e9', 'Below viewing angle'],
+]
+
+function SatRingKey() {
+  return (
+    <div className="sat-ring-key">
+      <div className="sat-ring-key-title">{getActiveSatellite().name} visibility ring</div>
+      {RING_KEY_ITEMS.map(([color, label]) => (
+        <div key={label} className="sat-ring-key-row">
+          <span className="sat-ring-key-dot" style={{ background: color }} />{label}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ─── URL pin resolution ─────────────────────────────────────────────────────
 // Pin ids are compact and self-describing: se-<cat>, le-<cat>, ms-<id>-<year>,
 // tr-<id>, el-<id>, cj-<id>, op-<id>. Resolve back to full events on load.
@@ -736,6 +757,9 @@ function EclipsePageInner() {
   const [transitPaths, setTransitPaths] = useState(null)
   const [selectedHotel, setSelectedHotel]   = useState(null)
   const [weatherStatus, setWeatherStatus] = useState(null)
+  // Bumped when the active satellite changes so map layers refresh even while
+  // the sim clock is paused
+  const [satNonce, setSatNonce] = useState(0)
 
   // Per-kind selections derived from the focused pin — the map renders the
   // focused event in full; other pins render lightweight footprints. A pin
@@ -1253,6 +1277,15 @@ function EclipsePageInner() {
     const draw = () => {
       if (cancelled || !map.current) return
 
+      // Path colors follow the active satellite
+      const sat = getActiveSatellite()
+      if (map.current.getLayer('iss-path-past-line')) {
+        map.current.setPaintProperty('iss-path-past-line', 'line-color', sat.darkColor)
+      }
+      if (map.current.getLayer('iss-path-future-line')) {
+        map.current.setPaintProperty('iss-path-future-line', 'line-color', sat.color)
+      }
+
       if (overlays.issPath) {
         const phases = getIssGroundTrackPhases(simTime)
         map.current.getSource('iss-path-past-source')?.setData(issPathGeoJSON(phases.past))
@@ -1288,7 +1321,7 @@ function EclipsePageInner() {
     loadIssArchive().then(draw)
 
     return () => { cancelled = true }
-  }, [simTime, mapLoaded, overlays.issPath, overlays.issIndicator, scoreData?.lat, scoreData?.lng])
+  }, [simTime, mapLoaded, overlays.issPath, overlays.issIndicator, scoreData?.lat, scoreData?.lng, satNonce])
 
   // ─── Transit paths ───────────────────────────────────────────────────────
 
@@ -1486,7 +1519,7 @@ function EclipsePageInner() {
       <div ref={mapContainer} className="eclipse-map" />
 {overlays.subSolar  && <SunIndicator  map={mapLoaded ? map.current : null} onFlyTo={([lng, lat]) => map.current?.flyTo({ center: [lng, lat], zoom: 3, duration: 1200 })} />}
       {overlays.subLunar  && <MoonIndicator map={mapLoaded ? map.current : null} onFlyTo={([lng, lat]) => map.current?.flyTo({ center: [lng, lat], zoom: 3, duration: 1200 })} />}
-      {overlays.issIndicator && simTime.getTime() >= ISS_LAUNCH_MS && <IssIndicator map={mapLoaded ? map.current : null} onFlyTo={([lng, lat]) => map.current?.flyTo({ center: [lng, lat], zoom: 4, duration: 1200 })} lat={scoreData?.lat} lng={scoreData?.lng} />}
+      {overlays.issIndicator && simTime.getTime() >= ISS_LAUNCH_MS && <IssIndicator key={satNonce} map={mapLoaded ? map.current : null} onFlyTo={([lng, lat]) => map.current?.flyTo({ center: [lng, lat], zoom: 4, duration: 1200 })} lat={scoreData?.lat} lng={scoreData?.lng} />}
       <ErrorBoundary name="SolarSystem"><SolarSystem /></ErrorBoundary>
       {overlays.lightPollution && <BortleLegend />}
       <RainViewerLayers
@@ -1495,11 +1528,14 @@ function EclipsePageInner() {
         radarVisible={!!overlays.weatherRadar}
         onStatus={setWeatherStatus}
       />
-      <AuroraLayer
-        map={mapLoaded ? map.current : null}
-        mapLoaded={mapLoaded}
-        visible={!!overlays.aurora}
-      />
+      <div className="map-legends-left">
+        <AuroraLayer
+          map={mapLoaded ? map.current : null}
+          mapLoaded={mapLoaded}
+          visible={!!overlays.aurora}
+        />
+        {overlays.issIndicator && simTime.getTime() >= ISS_LAUNCH_MS && <SatRingKey />}
+      </div>
       <WeatherLegend overlays={overlays} weatherStatus={weatherStatus} />
       <WindParticles map={mapLoaded ? map.current : null} mapLoaded={mapLoaded} visible={overlays.weatherWindPtcl} />
       <HotelLayer
@@ -1549,6 +1585,7 @@ function EclipsePageInner() {
           map.current?.flyTo({ center: [lng, lat], zoom: 9, duration: 1000 })
           handleLocationSelect(lng, lat)
         }}
+        onSatelliteChange={() => setSatNonce(n => n + 1)}
       />
 
       <LocationPanel
