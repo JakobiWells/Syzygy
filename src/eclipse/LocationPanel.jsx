@@ -159,14 +159,15 @@ function useLightPollution(lat, lng) {
   return state
 }
 
-export function IssObservations({ lat, lng, onSelectPass }) {
+export function IssObservations({ lat, lng, onSelectPass, anchorMode = 'now' }) {
   const { simTime } = useSimTime()
   const [state, setState] = useState({ loading: false, passes: [], tleAge: null, dataSource: null, loaded: false })
-  // Capture simTime once per location so playback ticks don't trigger recomputes
-  const startTimeRef = useRef(simTime)
+  // Anchor: real current time by default; sim clock only when explicitly chosen.
+  // Captured once per location so playback ticks don't trigger recomputes.
+  const startTimeRef = useRef(anchorMode === 'sim' ? simTime : new Date())
 
   useEffect(() => {
-    startTimeRef.current = simTime
+    startTimeRef.current = anchorMode === 'sim' ? simTime : new Date()
     setState({ loading: false, passes: [], tleAge: null, dataSource: null, loaded: false })
   }, [lat, lng])
 
@@ -362,7 +363,7 @@ function formatSimDate(date) {
   }).format(date)
 }
 
-function IssTransitContent({ lat, lng, onTransitPaths, onSelectTransit, onSelectPlace }) {
+function IssTransitContent({ lat, lng, onTransitPaths, onSelectTransit, onSelectPlace, anchorMode = 'now' }) {
   const { simTime } = useSimTime()
   const [type, setType] = useState('solar')
   const [altInput, setAltInput] = useState('0')
@@ -417,7 +418,7 @@ function IssTransitContent({ lat, lng, onTransitPaths, onSelectTransit, onSelect
     if (lat == null || lng == null) return
     cancelRef.current?.()
     const altM = parseFloat(altInput) || 0
-    const searchStart = new Date(simTime)
+    const searchStart = anchorMode === 'sim' ? new Date(simTime) : new Date()
     let cancelled = false
     cancelRef.current = () => { cancelled = true }
     setState({ loading: true, transits: [], loaded: false, calcTime: null })
@@ -455,8 +456,9 @@ function IssTransitContent({ lat, lng, onTransitPaths, onSelectTransit, onSelect
   }
 
   const { loading, transits, loaded, calcTime } = state
-  // Show stale warning when simTime has drifted more than 6 hours from when we last calculated
-  const isStale = loaded && calcTime && Math.abs(simTime.getTime() - calcTime.getTime()) > 6 * 3600 * 1000
+  // Stale warning only matters when anchored to the sim clock
+  const isStale = anchorMode === 'sim' && loaded && calcTime &&
+    Math.abs(simTime.getTime() - calcTime.getTime()) > 6 * 3600 * 1000
   const fmtLat = lat != null ? `${Math.abs(lat).toFixed(4)}° ${lat >= 0 ? 'N' : 'S'}` : '—'
   const fmtLng = lng != null ? `${Math.abs(lng).toFixed(4)}° ${lng >= 0 ? 'E' : 'W'}` : '—'
 
@@ -506,7 +508,9 @@ function IssTransitContent({ lat, lng, onTransitPaths, onSelectTransit, onSelect
       {/* Start time + calculate */}
       <div className="iss-transit-start-row">
         <span className="iss-transit-start-label">From</span>
-        <span className="iss-transit-start-val">{formatSimDate(simTime)}</span>
+        <span className="iss-transit-start-val">
+          {anchorMode === 'sim' ? formatSimDate(simTime) : `Now · ${formatSimDate(new Date())}`}
+        </span>
       </div>
       <button
         className="iss-transit-calc-btn"
@@ -531,7 +535,7 @@ function IssTransitContent({ lat, lng, onTransitPaths, onSelectTransit, onSelect
           {type === 'solar' && <p className="iss-transit-note-obs">Solar filter required to observe safely.</p>}
           <p className="iss-transit-disclaimer">Paths beyond 2 weeks are approximate.</p>
           {transits.map((tr, i) => {
-            const beyond = tr.midTime.getTime() > nowMs + TWO_WEEKS_MS
+            const beyond = tr.midTime.getTime() > Date.now() + TWO_WEEKS_MS
             return (
               <button
                 key={i}
@@ -565,6 +569,9 @@ function IssTransitContent({ lat, lng, onTransitPaths, onSelectTransit, onSelect
 export function IssSatellitePanel({ lat, lng, onSelectPass, onTransitPaths, onSelectTransit, onSelectPlace }) {
   const [tab, setTab] = useState('obs')
   const [satId, setSatId] = useState(() => getActiveSatellite().id)
+  // Pass/transit searches anchor to the real current time by default; the
+  // sim clock is opt-in (for exploring other dates)
+  const [anchorMode, setAnchorMode] = useState('now')
 
   useEffect(() => {
     if (tab !== 'transit') onTransitPaths?.(null)
@@ -594,6 +601,13 @@ export function IssSatellitePanel({ lat, lng, onSelectPass, onTransitPaths, onSe
             >{s.name}</button>
           ))}
         </div>
+        <span className="eclipse-filter-label" style={{ marginTop: '0.25rem' }}>Search from</span>
+        <div className="evt-pill-row">
+          <button className={`evt-pill${anchorMode === 'now' ? ' is-on' : ''}`}
+            onClick={() => setAnchorMode('now')}>Current time</button>
+          <button className={`evt-pill${anchorMode === 'sim' ? ' is-on' : ''}`}
+            onClick={() => setAnchorMode('sim')}>Sim clock</button>
+        </div>
       </div>
 
       <div className="iss-sat-header">
@@ -606,13 +620,13 @@ export function IssSatellitePanel({ lat, lng, onSelectPass, onTransitPaths, onSe
         </div>
       </div>
 
-      {/* key={satId} remounts the tabs so passes/transits recompute for the new satellite */}
+      {/* key remounts the tabs so results recompute on satellite/anchor switch */}
       {tab === 'obs' && (lat != null
-        ? <IssObservations key={satId} lat={lat} lng={lng} onSelectPass={onSelectPass} />
+        ? <IssObservations key={`${satId}-${anchorMode}`} lat={lat} lng={lng} onSelectPass={onSelectPass} anchorMode={anchorMode} />
         : <p className="iss-obs-empty" style={{ padding: '8px 12px' }}>Click a location to see passes.</p>
       )}
       {tab === 'transit' && (lat != null
-        ? <IssTransitContent key={satId} lat={lat} lng={lng} onTransitPaths={onTransitPaths} onSelectTransit={onSelectTransit} onSelectPlace={onSelectPlace} />
+        ? <IssTransitContent key={`${satId}-${anchorMode}`} lat={lat} lng={lng} onTransitPaths={onTransitPaths} onSelectTransit={onSelectTransit} onSelectPlace={onSelectPlace} anchorMode={anchorMode} />
         : <p className="iss-obs-empty" style={{ padding: '8px 12px' }}>
             Click a location or{' '}
             <button className="iss-transit-geo-inline" onClick={() => {
