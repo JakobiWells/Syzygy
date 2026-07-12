@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useSimTime } from '../time/TimeContext'
-import { findIssVisiblePasses, findIssSolarTransits, findIssLunarTransits, getIssTleAgeDays, getIssDataSource, loadIssTle, loadIssArchive, SATELLITES, getActiveSatellite, setActiveSatellite } from './issEngine'
+import { findIssVisiblePasses, findIssSolarTransits, findIssLunarTransits, getIssTleAgeDays, getIssDataSource, loadIssTle, loadIssArchive, SATELLITES, satById } from './issEngine'
 import SunWidget from './SunWidget'
 import MoonWidget from './MoonWidget'
 import SolarDiscView from './SolarDiscView'
@@ -165,28 +165,32 @@ function useLightPollution(lat, lng) {
 
 const GOOD_PASS_MIN_ALT = 30   // "good" passes climb at least this high
 
-export function IssObservations({ lat, lng, onSelectPass, anchorMode = 'now' }) {
+// Short "calculated for …" stamp shown with results, so results stay visible
+// (and honest) when the user changes satellite/location/anchor afterwards
+function calcStamp(calc) {
+  if (!calc) return ''
+  const latS = `${Math.abs(calc.lat).toFixed(2)}°${calc.lat >= 0 ? 'N' : 'S'}`
+  const lngS = `${Math.abs(calc.lng).toFixed(2)}°${calc.lng >= 0 ? 'E' : 'W'}`
+  return `${calc.satName} · ${latS} ${lngS} · from ${formatSimDate(calc.start)}`
+}
+
+export function IssObservations({ lat, lng, sat, onSelectPass, anchorMode = 'now' }) {
   const { simTime } = useSimTime()
-  const [state, setState] = useState({ loading: false, passes: [], tleAge: null, dataSource: null, loaded: false, calcTime: null })
+  const [state, setState] = useState({ loading: false, passes: [], tleAge: null, dataSource: null, loaded: false, calc: null })
   const [quality, setQuality] = useState('good')
   const cancelRef = useRef(null)
-
-  useEffect(() => {
-    cancelRef.current?.()
-    setState({ loading: false, passes: [], tleAge: null, dataSource: null, loaded: false, calcTime: null })
-  }, [lat, lng])
 
   const handleCalculate = () => {
     if (lat == null || lng == null) return
     cancelRef.current?.()
-    // Anchor: real current time by default; sim clock only when chosen
     const startTime = anchorMode === 'sim' ? new Date(simTime) : new Date()
     const nearCurrent = startTime.getTime() >= Date.now() - 7 * DAY_MS
+    const calc = { sat, satName: sat.name, lat, lng, start: startTime }
     let cancelled = false
     cancelRef.current = () => { cancelled = true }
-    setState({ loading: true, passes: [], tleAge: null, dataSource: null, loaded: false, calcTime: startTime })
+    setState(s => ({ ...s, loading: true }))
     Promise.all([
-      loadIssTle({ maxCacheMs: nearCurrent ? DAY_MS : 6 * 3600 * 1000 }),
+      loadIssTle({ maxCacheMs: nearCurrent ? DAY_MS : 6 * 3600 * 1000, sat }),
       loadIssArchive(),
     ]).then(() => {
       if (cancelled) return
@@ -195,39 +199,29 @@ export function IssObservations({ lat, lng, onSelectPass, anchorMode = 'now' }) 
         hoursAhead: 24 * 14,
         minElevDeg: 10,
         maxPasses: 80,
+        sat,
       })
-      const ds = getIssDataSource(startTime)
+      const ds = getIssDataSource(startTime, sat)
       if (cancelled) return
-      setState({ loading: false, passes, tleAge: getIssTleAgeDays(startTime), dataSource: ds, loaded: true, calcTime: startTime })
+      setState({ loading: false, passes, tleAge: getIssTleAgeDays(startTime, sat), dataSource: ds, loaded: true, calc })
     }).catch(() => {
-      if (!cancelled) setState({ loading: false, passes: [], tleAge: null, dataSource: null, loaded: true, calcTime: startTime })
+      if (!cancelled) setState({ loading: false, passes: [], tleAge: null, dataSource: null, loaded: true, calc })
     })
   }
 
-  const { loading, passes: allPasses, tleAge, dataSource, loaded, calcTime } = state
+  const { loading, passes: allPasses, tleAge, dataSource, loaded, calc } = state
   const passes = quality === 'good' ? allPasses.filter(p => p.maxAlt >= GOOD_PASS_MIN_ALT) : allPasses
-  const fmtLat = lat != null ? `${Math.abs(lat).toFixed(3)}° ${lat >= 0 ? 'N' : 'S'}` : '—'
-  const fmtLng = lng != null ? `${Math.abs(lng).toFixed(3)}° ${lng >= 0 ? 'E' : 'W'}` : '—'
+  // Settings changed since the last calculation?
+  const stale = loaded && calc && (calc.sat.id !== sat.id || calc.lat !== lat || calc.lng !== lng)
 
   return (
     <div className="iss-obs-body">
-      {/* Which time and place this search uses */}
-      <div className="iss-transit-start-row">
-        <span className="iss-transit-start-label">From</span>
-        <span className="iss-transit-start-val">
-          {anchorMode === 'sim' ? formatSimDate(simTime) : `Now · ${formatSimDate(new Date())}`}
-        </span>
-      </div>
-      <div className="iss-transit-start-row">
-        <span className="iss-transit-start-label">At</span>
-        <span className="iss-transit-start-val">{fmtLat}, {fmtLng}</span>
-      </div>
       <button
         className="iss-transit-calc-btn"
         onClick={handleCalculate}
         disabled={loading || lat == null || lng == null}
       >
-        {loading ? <><span className="iss-obs-spinner" />{' '}Scanning 14 days…</> : 'Calculate passes'}
+        {loading ? <><span className="iss-obs-spinner" />{' '}Scanning 14 days…</> : `Calculate ${sat.name} passes`}
       </button>
 
       {dataSource && sourceLabel(dataSource.source, dataSource.ageDays) && (
@@ -235,6 +229,13 @@ export function IssObservations({ lat, lng, onSelectPass, anchorMode = 'now' }) 
       )}
       {tleAge != null && tleAge > 3 && tleAge <= 7 && dataSource?.source === 'live' && (
         <p className="iss-obs-warning">TLE data is {tleAge.toFixed(1)} days old — pass timing may drift.</p>
+      )}
+
+      {loaded && (
+        <div className="iss-results-stamp">
+          Results: {calcStamp(calc)}
+          {stale && <span className="iss-results-stale"> · settings changed — recalculate</span>}
+        </div>
       )}
 
       {loaded && allPasses.length > 0 && (
@@ -253,7 +254,7 @@ export function IssObservations({ lat, lng, onSelectPass, anchorMode = 'now' }) 
         <p className="iss-obs-empty">
           {allPasses.length > 0
             ? `No passes above ${GOOD_PASS_MIN_ALT}° — switch to All to see lower ones.`
-            : `No visible passes above 10° in the two weeks from ${formatSimDate(calcTime)}.`}
+            : 'No visible passes above 10° in the two weeks searched.'}
         </p>
       )}
 
@@ -402,21 +403,14 @@ function formatSimDate(date) {
   }).format(date)
 }
 
-function IssTransitContent({ lat, lng, onTransitPaths, onSelectTransit, onSelectPlace, anchorMode = 'now' }) {
+function IssTransitContent({ lat, lng, sat, onTransitPaths, onSelectTransit, anchorMode = 'now' }) {
   const { simTime } = useSimTime()
   const [type, setType] = useState('solar')
   const [altInput, setAltInput] = useState('0')
   const [radiusInput, setRadiusInput] = useState('10')   // miles willing to travel
   const [altFetching, setAltFetching] = useState(false)
-  const [geoLoading, setGeoLoading] = useState(false)
-  const [state, setState] = useState({ loading: false, transits: [], loaded: false, calcTime: null })
+  const [state, setState] = useState({ loading: false, transits: [], loaded: false, calc: null })
   const cancelRef = useRef(null)
-
-  // Reset results when location changes
-  useEffect(() => {
-    setState({ loading: false, transits: [], loaded: false, calcTime: null })
-    onTransitPaths?.(null)
-  }, [lat, lng])
 
   // Auto-fetch elevation from Open-Meteo when lat/lng changes
   useEffect(() => {
@@ -435,23 +429,8 @@ function IssTransitContent({ lat, lng, onTransitPaths, onSelectTransit, onSelect
     return () => { cancelled = true }
   }, [lat, lng])
 
-  const handleGetLocation = () => {
-    if (!navigator.geolocation || geoLoading) return
-    setGeoLoading(true)
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        setGeoLoading(false)
-        onSelectPlace?.(pos.coords.longitude, pos.coords.latitude)
-      },
-      () => { setGeoLoading(false) },
-      { timeout: 8000 }
-    )
-  }
-
   const handleTypeChange = (t) => {
     setType(t)
-    setState({ loading: false, transits: [], loaded: false })
-    onTransitPaths?.(null)
   }
 
   const handleCalculate = () => {
@@ -459,14 +438,14 @@ function IssTransitContent({ lat, lng, onTransitPaths, onSelectTransit, onSelect
     cancelRef.current?.()
     const altM = parseFloat(altInput) || 0
     const searchStart = anchorMode === 'sim' ? new Date(simTime) : new Date()
+    const calc = { sat, satName: sat.name, lat, lng, start: searchStart, type }
     let cancelled = false
     cancelRef.current = () => { cancelled = true }
-    setState({ loading: true, transits: [], loaded: false, calcTime: null })
-    onTransitPaths?.(null)
+    setState(s => ({ ...s, loading: true }))
     const radiusMi = Math.max(1, parseFloat(radiusInput) || 10)
-    Promise.all([loadIssTle({ maxCacheMs: DAY_MS }), loadIssArchive()]).then(() => {
+    Promise.all([loadIssTle({ maxCacheMs: DAY_MS, sat }), loadIssArchive()]).then(() => {
       if (cancelled) return
-      const opts = { start: searchStart, hoursAhead: 24 * 30, altM, searchRadiusKm: radiusMi * 1.60934 }
+      const opts = { start: searchStart, hoursAhead: 24 * 30, altM, searchRadiusKm: radiusMi * 1.60934, sat }
       const transits = type === 'solar'
         ? findIssSolarTransits(lat, lng, opts)
         : findIssLunarTransits(lat, lng, opts)
@@ -490,18 +469,15 @@ function IssTransitContent({ lat, lng, onTransitPaths, onSelectTransit, onSelect
         },
       }
       onTransitPaths?.(paths)
-      setState({ loading: false, transits, loaded: true, calcTime: searchStart })
+      setState({ loading: false, transits, loaded: true, calc })
     }).catch(() => {
-      if (!cancelled) setState({ loading: false, transits: [], loaded: true, calcTime: searchStart })
+      if (!cancelled) setState({ loading: false, transits: [], loaded: true, calc })
     })
   }
 
-  const { loading, transits, loaded, calcTime } = state
-  // Stale warning only matters when anchored to the sim clock
-  const isStale = anchorMode === 'sim' && loaded && calcTime &&
-    Math.abs(simTime.getTime() - calcTime.getTime()) > 6 * 3600 * 1000
-  const fmtLat = lat != null ? `${Math.abs(lat).toFixed(4)}° ${lat >= 0 ? 'N' : 'S'}` : '—'
-  const fmtLng = lng != null ? `${Math.abs(lng).toFixed(4)}° ${lng >= 0 ? 'E' : 'W'}` : '—'
+  const { loading, transits, loaded, calc } = state
+  const stale = loaded && calc &&
+    (calc.sat.id !== sat.id || calc.lat !== lat || calc.lng !== lng || calc.type !== type)
 
   return (
     <div className="iss-transit-content">
@@ -513,17 +489,9 @@ function IssTransitContent({ lat, lng, onTransitPaths, onSelectTransit, onSelect
           onClick={() => handleTypeChange('lunar')}>Lunar</button>
       </div>
 
-      {/* Location + altitude */}
+      {/* Observer altitude + travel radius */}
       <div className="iss-transit-location">
         <div className="iss-transit-coords">
-          <div className="iss-transit-coord-row">
-            <span className="iss-transit-coord-label">Lat</span>
-            <span className="iss-transit-coord-val">{fmtLat}</span>
-          </div>
-          <div className="iss-transit-coord-row">
-            <span className="iss-transit-coord-label">Lng</span>
-            <span className="iss-transit-coord-val">{fmtLng}</span>
-          </div>
           <div className="iss-transit-coord-row">
             <span className="iss-transit-coord-label">Alt</span>
             <input
@@ -546,23 +514,8 @@ function IssTransitContent({ lat, lng, onTransitPaths, onSelectTransit, onSelect
             <span className="iss-transit-coord-unit">mi</span>
           </div>
         </div>
-        <button
-          className="iss-transit-geo-btn"
-          onClick={handleGetLocation}
-          disabled={geoLoading || !navigator.geolocation}
-          title="Use your current GPS location"
-        >
-          {geoLoading ? <><span className="iss-obs-spinner" />{' '}Locating…</> : '⊙ Use my location'}
-        </button>
       </div>
 
-      {/* Start time + calculate */}
-      <div className="iss-transit-start-row">
-        <span className="iss-transit-start-label">From</span>
-        <span className="iss-transit-start-val">
-          {anchorMode === 'sim' ? formatSimDate(simTime) : `Now · ${formatSimDate(new Date())}`}
-        </span>
-      </div>
       <button
         className="iss-transit-calc-btn"
         onClick={handleCalculate}
@@ -570,16 +523,19 @@ function IssTransitContent({ lat, lng, onTransitPaths, onSelectTransit, onSelect
       >
         {loading
           ? <><span className="iss-obs-spinner" />{' '}Scanning 30 days…</>
-          : 'Calculate'}
+          : `Calculate ${sat.name} transits`}
       </button>
 
-      {isStale && (
-        <p className="iss-transit-stale">Time changed — recalculate to update results.</p>
+      {loaded && (
+        <div className="iss-results-stamp">
+          Results: {calc?.type} · {calcStamp(calc)}
+          {stale && <span className="iss-results-stale"> · settings changed — recalculate</span>}
+        </div>
       )}
 
       {/* Results */}
       {loaded && transits.length === 0 && (
-        <p className="iss-obs-empty">No {type} transits found in the 30 days from {formatSimDate(calcTime)}.</p>
+        <p className="iss-obs-empty">No {calc?.type} transits within {radiusInput} mi in the 30 days searched.</p>
       )}
       {loaded && transits.length > 0 && (
         <div className="iss-transit-results">
@@ -617,31 +573,57 @@ function IssTransitContent({ lat, lng, onTransitPaths, onSelectTransit, onSelect
 
 // ── Combined satellite panel ───────────────────────────────────────────────
 
-export function IssSatellitePanel({ lat, lng, onSelectPass, onTransitPaths, onSelectTransit, onSelectPlace, onSatelliteChange }) {
+export function IssSatellitePanel({ lat, lng, onSelectPass, onTransitPaths, onSelectTransit, onSelectPlace }) {
+  const { simTime } = useSimTime()
   const [tab, setTab] = useState('obs')
-  const [satId, setSatId] = useState(() => getActiveSatellite().id)
-  // Pass/transit searches anchor to the real current time by default; the
-  // sim clock is opt-in (for exploring other dates)
+  const [satId, setSatId] = useState('iss')
+  // Searches anchor to the real current time by default; the sim clock is
+  // opt-in for exploring other dates
   const [anchorMode, setAnchorMode] = useState('now')
+  // Location is an editable input: map clicks fill it in, manual edits and
+  // geolocation work too. Changing it never clears existing results.
+  const [latText, setLatText] = useState('')
+  const [lngText, setLngText] = useState('')
+  const [geoLoading, setGeoLoading] = useState(false)
 
   useEffect(() => {
-    if (tab !== 'transit') onTransitPaths?.(null)
-  }, [tab])
+    if (lat != null && lng != null) {
+      setLatText(lat.toFixed(4))
+      setLngText(lng.toFixed(4))
+    }
+  }, [lat, lng])
 
   function selectSat(id) {
     if (id === satId) return
-    setActiveSatellite(id)
-    loadIssTle()          // fetch the new satellite's TLE (cached per satellite)
-    onTransitPaths?.(null)
+    const s = SATELLITES.find(x => x.id === id)
+    if (s) loadIssTle({ sat: s })   // pre-fetch the TLE (cached per satellite)
     setSatId(id)
-    onSatelliteChange?.(id)   // lets the map refresh indicator/path immediately
   }
 
-  const sat = SATELLITES.find(s => s.id === satId) ?? SATELLITES[0]
+  function handleGetLocation() {
+    if (!navigator.geolocation || geoLoading) return
+    setGeoLoading(true)
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setGeoLoading(false)
+        setLatText(pos.coords.latitude.toFixed(4))
+        setLngText(pos.coords.longitude.toFixed(4))
+        onSelectPlace?.(pos.coords.longitude, pos.coords.latitude)
+      },
+      () => { setGeoLoading(false) },
+      { timeout: 8000 }
+    )
+  }
+
+  const sat = satById(satId)
+  const latNum = parseFloat(latText)
+  const lngNum = parseFloat(lngText)
+  const hasLoc = isFinite(latNum) && isFinite(lngNum) && Math.abs(latNum) <= 90 && Math.abs(lngNum) <= 180
+  const parsedLat = hasLoc ? latNum : null
+  const parsedLng = hasLoc ? lngNum : null
 
   return (
     <div className="iss-sat-panel">
-      {/* Satellite picker — the engine tracks one satellite at a time */}
       <div className="iss-sat-picker">
         <span className="eclipse-filter-label">Satellite</span>
         <div className="evt-pill-row">
@@ -649,10 +631,12 @@ export function IssSatellitePanel({ lat, lng, onSelectPass, onTransitPaths, onSe
             <button
               key={s.id}
               className={`evt-pill${s.id === satId ? ' is-on' : ''}`}
+              style={s.id === satId ? { background: s.darkColor, borderColor: s.darkColor } : {}}
               onClick={() => selectSat(s.id)}
             >{s.name}</button>
           ))}
         </div>
+
         <span className="eclipse-filter-label" style={{ marginTop: '0.25rem' }}>Search from</span>
         <div className="evt-pill-row">
           <button className={`evt-pill${anchorMode === 'now' ? ' is-on' : ''}`}
@@ -660,6 +644,30 @@ export function IssSatellitePanel({ lat, lng, onSelectPass, onTransitPaths, onSe
           <button className={`evt-pill${anchorMode === 'sim' ? ' is-on' : ''}`}
             onClick={() => setAnchorMode('sim')}>Sim clock</button>
         </div>
+        <div className="iss-anchor-value">
+          {anchorMode === 'sim' ? formatSimDate(simTime) : `Now · ${formatSimDate(new Date())}`}
+        </div>
+
+        <span className="eclipse-filter-label" style={{ marginTop: '0.25rem' }}>Location</span>
+        <div className="iss-loc-row">
+          <input
+            className="iss-loc-input" type="number" step="0.0001" min="-90" max="90"
+            placeholder="Latitude" value={latText}
+            onChange={e => setLatText(e.target.value)}
+          />
+          <input
+            className="iss-loc-input" type="number" step="0.0001" min="-180" max="180"
+            placeholder="Longitude" value={lngText}
+            onChange={e => setLngText(e.target.value)}
+          />
+          <button
+            className="iss-loc-geo"
+            onClick={handleGetLocation}
+            disabled={geoLoading || !navigator.geolocation}
+            title="Use your current GPS location"
+          >{geoLoading ? '…' : '⊙'}</button>
+        </div>
+        {!hasLoc && <div className="iss-loc-hint">Click the map, enter coordinates, or use ⊙.</div>}
       </div>
 
       <div className="iss-sat-header">
@@ -672,25 +680,12 @@ export function IssSatellitePanel({ lat, lng, onSelectPass, onTransitPaths, onSe
         </div>
       </div>
 
-      {/* key remounts the tabs so results recompute on satellite/anchor switch */}
-      {tab === 'obs' && (lat != null
-        ? <IssObservations key={`${satId}-${anchorMode}`} lat={lat} lng={lng} onSelectPass={onSelectPass} anchorMode={anchorMode} />
-        : <p className="iss-obs-empty" style={{ padding: '8px 12px' }}>Click a location to see passes.</p>
-      )}
-      {tab === 'transit' && (lat != null
-        ? <IssTransitContent key={`${satId}-${anchorMode}`} lat={lat} lng={lng} onTransitPaths={onTransitPaths} onSelectTransit={onSelectTransit} onSelectPlace={onSelectPlace} anchorMode={anchorMode} />
-        : <p className="iss-obs-empty" style={{ padding: '8px 12px' }}>
-            Click a location or{' '}
-            <button className="iss-transit-geo-inline" onClick={() => {
-              if (!navigator.geolocation) return
-              navigator.geolocation.getCurrentPosition(
-                pos => onSelectPlace?.(pos.coords.longitude, pos.coords.latitude),
-                () => {}
-              )
-            }}>use your location</button>
-            {' '}to scan for transits.
-          </p>
-      )}
+      <div style={{ display: tab === 'obs' ? 'block' : 'none' }}>
+        <IssObservations lat={parsedLat} lng={parsedLng} sat={sat} onSelectPass={onSelectPass} anchorMode={anchorMode} />
+      </div>
+      <div style={{ display: tab === 'transit' ? 'block' : 'none' }}>
+        <IssTransitContent lat={parsedLat} lng={parsedLng} sat={sat} onTransitPaths={onTransitPaths} onSelectTransit={onSelectTransit} anchorMode={anchorMode} />
+      </div>
     </div>
   )
 }

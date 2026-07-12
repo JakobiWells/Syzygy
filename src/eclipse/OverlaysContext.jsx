@@ -36,8 +36,9 @@ export const OVERLAY_GROUPS = [
     id: 'satellites',
     label: 'Satellites',
     items: [
-      { key: 'issIndicator', label: 'ISS indicator', color: '#0ea5e9' },
-      { key: 'issPath',      label: 'ISS path',      color: '#0ea5e9' },
+      { key: 'satIss',      label: 'ISS',      color: '#0ea5e9' },
+      { key: 'satTiangong', label: 'Tiangong', color: '#f472b6' },
+      { key: 'satHst',      label: 'Hubble',   color: '#a78bfa' },
     ],
   },
   {
@@ -71,8 +72,9 @@ export const OVERLAY_DEFAULTS = {
   greatestDuration: false,
   subSolar: false,
   subLunar: false,
-  issIndicator: true,
-  issPath: true,
+  satIss: true,
+  satTiangong: false,
+  satHst: false,
   equator: false,
   tropics: false,
   timezones: false,

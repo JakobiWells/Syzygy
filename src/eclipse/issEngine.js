@@ -20,10 +20,11 @@ export const ISS_LAUNCH_MS = Date.UTC(1998, 10, 20) // 1998-11-20
 const EARTH_R_KM = 6371
 
 // ── Satellite catalog ─────────────────────────────────────────────────────────
-// The engine tracks one "active" satellite at a time; all exported functions
-// operate on it. discRadiusDeg ≈ apparent angular radius at typical range
-// (drives the transit visibility-band width); baseMag anchors the brightness
-// estimate. Only the ISS has a historical TLE archive.
+// Every exported function takes an explicit satellite (defaulting to the ISS),
+// so multiple satellites can be tracked and rendered concurrently.
+// discRadiusDeg ≈ apparent angular radius at typical range (drives the transit
+// visibility-band width); baseMag anchors the brightness estimate. Only the
+// ISS has a historical TLE archive; the others fall back to the live TLE.
 
 export const SATELLITES = [
   {
@@ -31,31 +32,28 @@ export const SATELLITES = [
     launchMs: ISS_LAUNCH_MS,
     discRadiusDeg: 0.009, baseMag: -1.3,
     color: '#0ea5e9', darkColor: '#0369a1',
+    overlayKey: 'satIss',
   },
   {
     id: 'tiangong', name: 'Tiangong', catnr: 48274,
     launchMs: Date.UTC(2021, 3, 29),   // Tianhe core module
     discRadiusDeg: 0.004, baseMag: 0.2,
     color: '#f472b6', darkColor: '#be185d',
+    overlayKey: 'satTiangong',
   },
   {
     id: 'hst', name: 'Hubble', catnr: 20580,
     launchMs: Date.UTC(1990, 3, 24),
     discRadiusDeg: 0.0015, baseMag: 2.0,
     color: '#a78bfa', darkColor: '#6d28d9',
+    overlayKey: 'satHst',
   },
 ]
 
-let activeSat = SATELLITES[0]
+export const DEFAULT_SAT = SATELLITES[0]
 
-export function getActiveSatellite() { return activeSat }
-
-export function setActiveSatellite(id) {
-  const def = SATELLITES.find(s => s.id === id)
-  if (!def || def.id === activeSat.id) return activeSat
-  activeSat = def
-  dataVersion++
-  return def
+export function satById(id) {
+  return SATELLITES.find(s => s.id === id) ?? DEFAULT_SAT
 }
 
 // TLE sources tried in order. ivanstanojevic returns JSON; celestrak returns plain text.
@@ -73,11 +71,11 @@ const PASS_REFINE_STEPS = 12
 // Per-satellite live TLE state (current + recent future)
 const satStates = new Map()   // catnr → { liveSatrec, lastFetch, loadPromise }
 
-function satState(catnr = activeSat.catnr) {
-  let s = satStates.get(catnr)
+function satState(sat = DEFAULT_SAT) {
+  let s = satStates.get(sat.catnr)
   if (!s) {
     s = { liveSatrec: null, lastFetch: 0, loadPromise: null }
-    satStates.set(catnr, s)
+    satStates.set(sat.catnr, s)
   }
   return s
 }
@@ -135,13 +133,12 @@ export function loadIssArchive() {
   return archivePromise
 }
 
-/** Fetch (or refresh) the active satellite's live TLE. Tries multiple sources;
+/** Fetch (or refresh) a satellite's live TLE. Tries multiple sources;
  *  the ISS falls back to a hardcoded TLE if every source fails.
  *  maxCacheMs: how fresh the cached TLE must be before we skip a re-fetch (default 6 h). */
-export function loadIssTle({ maxCacheMs = CACHE_MS } = {}) {
-  const sat = activeSat
+export function loadIssTle({ maxCacheMs = CACHE_MS, sat = DEFAULT_SAT } = {}) {
   if (sat.id === 'iss') loadIssArchive()   // kick off the archive fetch in parallel; never blocks
-  const state = satState(sat.catnr)
+  const state = satState(sat)
   const now = Date.now()
   if (state.liveSatrec && now - state.lastFetch < maxCacheMs) return Promise.resolve(state.liveSatrec)
   if (state.loadPromise) return state.loadPromise
@@ -193,10 +190,10 @@ const LIVE_PREFER_MS = 7 * 24 * 3600 * 1000
  *   - Historical             → archive entry within ±7 days
  *   - Fallback               → live TLE regardless
  */
-function getSatrecInfo(date) {
+function getSatrecInfo(date, sat = DEFAULT_SAT) {
   const t   = date.getTime()
   const now = Date.now()
-  const live = satState().liveSatrec
+  const live = satState(sat).liveSatrec
 
   function liveResult() {
     if (!live) return { rec: null, source: null, epochMs: null, ageDays: null }
@@ -217,7 +214,7 @@ function getSatrecInfo(date) {
   }
 
   // Historical archive exists for the ISS only
-  if (activeSat.id === 'iss' && ARCHIVE.length > 0) {
+  if (sat.id === 'iss' && ARCHIVE.length > 0) {
     // Binary search for the closest archive entry
     let lo = 0, hi = ARCHIVE.length - 1
     while (lo < hi) {
@@ -249,8 +246,8 @@ function getSatrecInfo(date) {
  *   ageDays: days between the date and the TLE epoch (lower = more accurate)
  *   epochDate: Date of the TLE epoch used
  */
-export function getIssDataSource(date) {
-  const info = getSatrecInfo(date)
+export function getIssDataSource(date, sat = DEFAULT_SAT) {
+  const info = getSatrecInfo(date, sat)
   if (!info.rec) return { source: 'unavailable', ageDays: null, epochDate: null }
   return {
     source:    info.source,
@@ -280,10 +277,10 @@ function propagateEcf(date, rec) {
  *  Memoized on exact time — called several times per render pass with the same simTime. */
 let _posCache = null
 
-export function getIssPosition(date) {
+export function getIssPosition(date, sat = DEFAULT_SAT) {
   const t = date.getTime()
-  if (_posCache && _posCache.t === t && _posCache.v === dataVersion) return _posCache.result
-  const { rec } = getSatrecInfo(date)
+  if (_posCache && _posCache.t === t && _posCache.sat === sat.id && _posCache.v === dataVersion) return _posCache.result
+  const { rec } = getSatrecInfo(date, sat)
   let result = null
   if (rec) {
     const pv = propagatePos(date, rec)
@@ -294,13 +291,13 @@ export function getIssPosition(date) {
       if (isFinite(lng) && isFinite(lat) && isFinite(gd.height)) result = { lng, lat, altKm: gd.height }
     }
   }
-  _posCache = { t, result, v: dataVersion }
+  _posCache = { t, sat: sat.id, result, v: dataVersion }
   return result
 }
 
 /** Observer-relative ISS look angles. Returns altitude/elevation, azimuth, and range. */
-export function getIssLookAngles(date, lat, lng, heightKm = 0) {
-  const { rec } = getSatrecInfo(date)
+export function getIssLookAngles(date, lat, lng, heightKm = 0, sat = DEFAULT_SAT) {
+  const { rec } = getSatrecInfo(date, sat)
   const ecf = propagateEcf(date, rec)
   if (!ecf) return null
   const look = ecfToLookAngles({
@@ -315,21 +312,21 @@ export function getIssLookAngles(date, lat, lng, heightKm = 0) {
   }
 }
 
-export function getIssSubPoint(date) {
-  const pos = getIssPosition(date)
+export function getIssSubPoint(date, sat = DEFAULT_SAT) {
+  const pos = getIssPosition(date, sat)
   return pos ? [pos.lng, pos.lat] : null
 }
 
 // ── TLE metadata ──────────────────────────────────────────────────────────────
 
-export function getIssTleEpochDate() {
-  const live = satState().liveSatrec
+export function getIssTleEpochDate(sat = DEFAULT_SAT) {
+  const live = satState(sat).liveSatrec
   if (!live?.jdsatepoch) return null
   return new Date((live.jdsatepoch - 2440587.5) * 86400000)
 }
 
-export function getIssTleAgeDays(date = new Date()) {
-  const epoch = getIssTleEpochDate()
+export function getIssTleAgeDays(date = new Date(), sat = DEFAULT_SAT) {
+  const epoch = getIssTleEpochDate(sat)
   if (!epoch) return null
   return Math.abs(date.getTime() - epoch.getTime()) / 86400000
 }
@@ -341,8 +338,8 @@ function recOrbitMinutes(rec) {
   return (2 * Math.PI) / rec.no
 }
 
-export function getIssOrbitMinutes() {
-  return recOrbitMinutes(satState().liveSatrec)
+export function getIssOrbitMinutes(sat = DEFAULT_SAT) {
+  return recOrbitMinutes(satState(sat).liveSatrec)
 }
 
 function splitAtAntimeridian(coords) {
@@ -398,8 +395,8 @@ function trackPointAt(gridMs, rec, id) {
  * track is always connected through the current ISS position and never snaps
  * when a revolution completes.
  */
-export function getIssGroundTrackPhases(atDate, stepSec = TRACK_STEP_SEC) {
-  const { rec } = getSatrecInfo(atDate)
+export function getIssGroundTrackPhases(atDate, stepSec = TRACK_STEP_SEC, sat = DEFAULT_SAT) {
+  const { rec } = getSatrecInfo(atDate, sat)
   if (!rec) return { past: [], future: [] }
 
   const id        = recId(rec)
@@ -418,7 +415,7 @@ export function getIssGroundTrackPhases(atDate, stepSec = TRACK_STEP_SEC) {
   }
 
   // Insert current position at boundary so past and future connect smoothly
-  const current = getIssPosition(atDate)
+  const current = getIssPosition(atDate, sat)
   if (current) {
     const c = [current.lng, current.lat]
     const lastPast = past[past.length - 1]
@@ -446,9 +443,9 @@ export function getIssVisibilityRadiusKm(altKm, minElevDeg = 0) {
   return EARTH_R_KM * Math.max(0, Math.acos(arg) - e)
 }
 
-/** True when ISS is sunlit (not in Earth's shadow). */
-export function isIssSunlit(date) {
-  const { rec } = getSatrecInfo(date)
+/** True when the satellite is sunlit (not in Earth's shadow). */
+export function isIssSunlit(date, sat = DEFAULT_SAT) {
+  const { rec } = getSatrecInfo(date, sat)
   if (!rec) return false
   const pv = propagatePos(date, rec)
   if (!pv) return false
@@ -472,11 +469,11 @@ export function isObserverDark(date, lat, lng, maxSunAltDeg = -6) {
   return sun.altitude * 180 / Math.PI <= maxSunAltDeg
 }
 
-function visibilityState(date, lat, lng, minElevDeg) {
-  const look  = getIssLookAngles(date, lat, lng)
+function visibilityState(date, lat, lng, minElevDeg, sat) {
+  const look  = getIssLookAngles(date, lat, lng, 0, sat)
   const above = (look?.alt ?? -90) >= minElevDeg
   if (!look || !above) return { look, sunlit: false, dark: false, visible: false }
-  const sunlit = isIssSunlit(date)
+  const sunlit = isIssSunlit(date, sat)
   const dark   = isObserverDark(date, lat, lng)
   return { look, sunlit, dark, visible: Boolean(sunlit && dark) }
 }
@@ -485,30 +482,30 @@ function visibilityState(date, lat, lng, minElevDeg) {
 // IssIndicator both call this with identical args in the same render pass.
 let _visCache = null
 
-export function getIssVisibilityStatus(date, lat, lng, minElevDeg = 10) {
+export function getIssVisibilityStatus(date, lat, lng, minElevDeg = 10, sat = DEFAULT_SAT) {
   const t = date.getTime()
-  if (_visCache && _visCache.t === t && _visCache.lat === lat && _visCache.lng === lng && _visCache.minElevDeg === minElevDeg && _visCache.v === dataVersion)
+  if (_visCache && _visCache.t === t && _visCache.sat === sat.id && _visCache.lat === lat && _visCache.lng === lng && _visCache.minElevDeg === minElevDeg && _visCache.v === dataVersion)
     return _visCache.result
-  const result = computeIssVisibilityStatus(date, lat, lng, minElevDeg)
-  _visCache = { t, lat, lng, minElevDeg, result, v: dataVersion }
+  const result = computeIssVisibilityStatus(date, lat, lng, minElevDeg, sat)
+  _visCache = { t, sat: sat.id, lat, lng, minElevDeg, result, v: dataVersion }
   return result
 }
 
-function computeIssVisibilityStatus(date, lat, lng, minElevDeg) {
-  const pos = getIssPosition(date)
-  if (!pos) return { status: 'unavailable', label: 'ISS position unavailable', pos: null }
+function computeIssVisibilityStatus(date, lat, lng, minElevDeg, sat) {
+  const pos = getIssPosition(date, sat)
+  if (!pos) return { status: 'unavailable', label: `${sat.name} position unavailable`, pos: null }
 
-  const { source, ageDays } = getIssDataSource(date)
+  const { source, ageDays } = getIssDataSource(date, sat)
   if (source === 'predicted' && ageDays > 14) {
     return { status: 'predicted', label: `Predicted position (~${Math.round(ageDays)}d from TLE)`, pos, ageDays }
   }
 
-  const sunlit = isIssSunlit(date)
-  if (!sunlit) return { status: 'not-sunlit', label: 'ISS in Earth shadow', pos, sunlit }
+  const sunlit = isIssSunlit(date, sat)
+  if (!sunlit) return { status: 'not-sunlit', label: `${sat.name} in Earth shadow`, pos, sunlit }
 
-  if (lat == null || lng == null) return { status: 'sunlit', label: 'ISS sunlit', pos, sunlit }
+  if (lat == null || lng == null) return { status: 'sunlit', label: `${sat.name} sunlit`, pos, sunlit }
 
-  const look = getIssLookAngles(date, lat, lng)
+  const look = getIssLookAngles(date, lat, lng, 0, sat)
   const dark = isObserverDark(date, lat, lng)
   if (!look || look.alt < minElevDeg) {
     return { status: 'out-of-range', label: 'Below local viewing angle', pos, sunlit, dark, look }
@@ -521,23 +518,23 @@ function computeIssVisibilityStatus(date, lat, lng, minElevDeg) {
 
 // ── Pass finder ───────────────────────────────────────────────────────────────
 
-function refineBoundary(loMs, hiMs, lat, lng, thresholdDeg) {
+function refineBoundary(loMs, hiMs, lat, lng, thresholdDeg, sat) {
   let lo = loMs, hi = hiMs
-  const loAbove = (getIssLookAngles(new Date(lo), lat, lng)?.alt ?? -90) >= thresholdDeg
+  const loAbove = (getIssLookAngles(new Date(lo), lat, lng, 0, sat)?.alt ?? -90) >= thresholdDeg
   for (let i = 0; i < PASS_REFINE_STEPS; i++) {
     const mid     = (lo + hi) / 2
-    const midAbove = (getIssLookAngles(new Date(mid), lat, lng)?.alt ?? -90) >= thresholdDeg
+    const midAbove = (getIssLookAngles(new Date(mid), lat, lng, 0, sat)?.alt ?? -90) >= thresholdDeg
     if (midAbove === loAbove) lo = mid; else hi = mid
   }
   return new Date((lo + hi) / 2)
 }
 
-function refineMax(startMs, endMs, lat, lng) {
+function refineMax(startMs, endMs, lat, lng, sat) {
   let best = null
   const span = endMs - startMs
   for (let i = 0; i <= 80; i++) {
     const t    = new Date(startMs + span * i / 80)
-    const look = getIssLookAngles(t, lat, lng)
+    const look = getIssLookAngles(t, lat, lng, 0, sat)
     if (!look) continue
     if (!best || look.alt > best.look.alt) best = { time: t, look }
   }
@@ -549,18 +546,18 @@ function cardinalFromAz(az) {
   return labels[Math.round((((az % 360) + 360) % 360) / 45) % 8]
 }
 
-function estimateIssMagnitude(look) {
+function estimateIssMagnitude(look, sat) {
   if (!look) return null
   const rangeTerm     = 5 * Math.log10(Math.max(look.rangeKm, 1) / 1000)
   const elevationBoost = -0.012 * Math.max(0, look.alt - 10)
-  return activeSat.baseMag + rangeTerm + elevationBoost
+  return sat.baseMag + rangeTerm + elevationBoost
 }
 
-function samplePassPath(startMs, endMs, lat, lng, samples = 7) {
+function samplePassPath(startMs, endMs, lat, lng, sat, samples = 7) {
   const pts = [], span = endMs - startMs
   for (let i = 0; i < samples; i++) {
     const t    = new Date(startMs + span * (samples === 1 ? 0 : i / (samples - 1)))
-    const look = getIssLookAngles(t, lat, lng)
+    const look = getIssLookAngles(t, lat, lng, 0, sat)
     if (!look) continue
     pts.push({ time: t, alt: look.alt, az: look.az, dir: cardinalFromAz(look.az) })
   }
@@ -572,8 +569,9 @@ export function findIssVisiblePasses(lat, lng, {
   hoursAhead = 36,
   minElevDeg = 10,
   maxPasses  = 8,
+  sat        = DEFAULT_SAT,
 } = {}) {
-  if (!getSatrecInfo(start).rec || lat == null || lng == null) return []
+  if (!getSatrecInfo(start, sat).rec || lat == null || lng == null) return []
 
   const passes = []
   const startMs = start.getTime()
@@ -581,22 +579,23 @@ export function findIssVisiblePasses(lat, lng, {
   const stepMs  = PASS_SCAN_STEP_SEC * 1000
   let inPass = false, passStart = null
   let prevMs    = startMs
-  let prevState = visibilityState(new Date(prevMs), lat, lng, minElevDeg)
+  let prevState = visibilityState(new Date(prevMs), lat, lng, minElevDeg, sat)
 
   for (let ms = startMs + stepMs; ms <= endMs && passes.length < maxPasses; ms += stepMs) {
-    const state = visibilityState(new Date(ms), lat, lng, minElevDeg)
+    const state = visibilityState(new Date(ms), lat, lng, minElevDeg, sat)
     if (!inPass && !prevState.visible && state.visible) {
-      passStart = refineBoundary(prevMs, ms, lat, lng, minElevDeg)
+      passStart = refineBoundary(prevMs, ms, lat, lng, minElevDeg, sat)
       inPass = true
     }
     if (inPass && prevState.visible && !state.visible) {
-      const passEnd = refineBoundary(prevMs, ms, lat, lng, minElevDeg)
-      const max     = refineMax(passStart.getTime(), passEnd.getTime(), lat, lng)
+      const passEnd = refineBoundary(prevMs, ms, lat, lng, minElevDeg, sat)
+      const max     = refineMax(passStart.getTime(), passEnd.getTime(), lat, lng, sat)
       if (max) {
-        const startLook = getIssLookAngles(passStart, lat, lng)
-        const endLook   = getIssLookAngles(passEnd,   lat, lng)
+        const startLook = getIssLookAngles(passStart, lat, lng, 0, sat)
+        const endLook   = getIssLookAngles(passEnd,   lat, lng, 0, sat)
         passes.push({
-          id: `${passStart.getTime()}-${passEnd.getTime()}`,
+          id: `${sat.id}-${passStart.getTime()}-${passEnd.getTime()}`,
+          satId: sat.id, satName: sat.name,
           start: passStart, end: passEnd,
           maxTime: max.time, maxAlt: max.look.alt, maxAz: max.look.az,
           startAz: startLook?.az ?? null, endAz: endLook?.az ?? null,
@@ -604,8 +603,8 @@ export function findIssVisiblePasses(lat, lng, {
           maxDir:   cardinalFromAz(max.look.az),
           endDir:   endLook   ? cardinalFromAz(endLook.az)   : '',
           durationSec: Math.max(0, Math.round((passEnd - passStart) / 1000)),
-          magnitude:   estimateIssMagnitude(max.look),
-          path:        samplePassPath(passStart.getTime(), passEnd.getTime(), lat, lng),
+          magnitude:   estimateIssMagnitude(max.look, sat),
+          path:        samplePassPath(passStart.getTime(), passEnd.getTime(), lat, lng, sat),
         })
       }
       inPass = false; passStart = null
@@ -671,14 +670,14 @@ function transitShadowPoint(issEcf, bodyDir) {
 
 // Ground shadow path ±90 s around a transit midTime.
 // Each point is where an observer would need to stand to see the ISS cross the body at that instant.
-function transitShadowPath(startTime, endTime, type) {
+function transitShadowPath(startTime, endTime, type, sat) {
   const body = type === 'solar' ? A.Body.Sun : A.Body.Moon
   const dMs = Math.max(endTime - startTime, 1)
   const steps = Math.max(4, Math.round(dMs / 50))
   const coords = []
   for (let i = 0; i <= steps; i++) {
     const t = new Date(startTime.getTime() + (i / steps) * dMs)
-    const { rec } = getSatrecInfo(t)
+    const { rec } = getSatrecInfo(t, sat)
     const ecf = propagateEcf(t, rec)
     if (!ecf) continue
     const dir = bodyEcefDir(t, body)
@@ -691,10 +690,10 @@ function transitShadowPath(startTime, endTime, type) {
 // Compute the visibility band polygon — the ground corridor where the ISS is at least
 // partially overlapping the solar/lunar disc (angular sep < disc_r + ISS_r).
 // Returns a GeoJSON ring (array of [lng, lat]) or null if too few samples.
-function transitBandPolygon(startTime, endTime, type) {
+function transitBandPolygon(startTime, endTime, type, sat) {
   const body = type === 'solar' ? A.Body.Sun : A.Body.Moon
   const DISC_R = type === 'solar' ? SUN_R : MOON_R
-  const halfAngRad = (DISC_R + satAngularRadius()) * DEG
+  const halfAngRad = (DISC_R + sat.discRadiusDeg) * DEG
   const a = 6378.137, b = 6356.752, a2 = a * a, b2 = b * b, e2 = (a2 - b2) / a2
 
   const dMs = Math.max(endTime - startTime, 1)
@@ -703,7 +702,7 @@ function transitBandPolygon(startTime, endTime, type) {
 
   for (let i = 0; i <= steps; i++) {
     const t = new Date(startTime.getTime() + (i / steps) * dMs)
-    const { rec } = getSatrecInfo(t)
+    const { rec } = getSatrecInfo(t, sat)
     const ecf = propagateEcf(t, rec)
     if (!ecf) continue
     const dir = bodyEcefDir(t, body)
@@ -752,7 +751,7 @@ function transitBandPolygon(startTime, endTime, type) {
 // Compute the ISS track across the solar/lunar disc as seen from (lat, lng, altM).
 // Returns an array of {x, y} in disc-radius units — (0,0) = disc center, ±1 = disc edge.
 // x = rightward (increasing azimuth), y = upward (increasing altitude).
-function transitDiscPath(startTime, endTime, type, lat, lng, altM = 0) {
+function transitDiscPath(startTime, endTime, type, lat, lng, altM = 0, sat = DEFAULT_SAT) {
   const body = type === 'solar' ? A.Body.Sun : A.Body.Moon
   const DISC_R = type === 'solar' ? SUN_R : MOON_R
   const dMs = Math.max(endTime - startTime, 1)
@@ -761,7 +760,7 @@ function transitDiscPath(startTime, endTime, type, lat, lng, altM = 0) {
   const pts = []
   for (let i = 0; i <= steps; i++) {
     const t = new Date(startTime.getTime() + (i / steps) * dMs)
-    const issLook = getIssLookAngles(t, lat, lng, heightKm)
+    const issLook = getIssLookAngles(t, lat, lng, heightKm, sat)
     if (!issLook) continue
     const bodyLook = ecfDirToAltAz(bodyEcefDir(t, body), lat, lng)
     const dAz = ((issLook.az - bodyLook.az + 540) % 360) - 180
@@ -789,8 +788,6 @@ function ecfDirToAltAz(dir, lat, lng) {
 
 const SUN_R  = 0.267
 const MOON_R = 0.259
-// Active satellite's apparent angular radius (deg) — ISS ~0.009°, smaller craft less
-function satAngularRadius() { return activeSat.discRadiusDeg }
 
 // ── Shadow-path transit scanner ───────────────────────────────────────────────
 //
@@ -811,13 +808,13 @@ function shadowToEcf(lngDeg, latDeg) {
   return geodeticToEcf({ latitude: latDeg * DEG, longitude: lngDeg * DEG, height: 0 })
 }
 
-function findIssTransits(lat, lng, target, { start = new Date(), hoursAhead = 24 * 30, altM = 0, searchRadiusKm = 300 } = {}) {
-  if (!getSatrecInfo(start).rec || lat == null || lng == null) return []
+function findIssTransits(lat, lng, target, { start = new Date(), hoursAhead = 24 * 30, altM = 0, searchRadiusKm = 300, sat = DEFAULT_SAT } = {}) {
+  if (!getSatrecInfo(start, sat).rec || lat == null || lng == null) return []
   if (!isFinite(lat) || !isFinite(lng)) return []
 
   const body     = target === 'solar' ? A.Body.Sun  : A.Body.Moon
   const DISC_R   = target === 'solar' ? SUN_R       : MOON_R
-  const halfAngR = (DISC_R + satAngularRadius()) * DEG
+  const halfAngR = (DISC_R + sat.discRadiusDeg) * DEG
 
   const obsEcf = observerEcf(lat, lng, altM)
   const latR = lat * DEG, lngR = lng * DEG
@@ -844,7 +841,7 @@ function findIssTransits(lat, lng, target, { start = new Date(), hoursAhead = 24
 
   const flush = (endT) => {
     if (inContact && midTime) {
-      raw.push(closeTransit(midTime, minDist, midIssRange, midHalfWidth, DISC_R, target))
+      raw.push(closeTransit(midTime, minDist, midIssRange, midHalfWidth, DISC_R, target, sat))
     }
     inContact = false; contactStart = null
     minDist = Infinity; midTime = null; midIssRange = 400; midHalfWidth = 0
@@ -852,7 +849,7 @@ function findIssTransits(lat, lng, target, { start = new Date(), hoursAhead = 24
 
   while (ms < endMs) {
     const t = new Date(ms)
-    const { rec } = getSatrecInfo(t)
+    const { rec } = getSatrecInfo(t, sat)
     if (!rec) { flush(t); ms += COARSE_MS; step = COARSE_MS; continue }
 
     const ecf = propagateEcf(t, rec)
@@ -908,18 +905,19 @@ function findIssTransits(lat, lng, target, { start = new Date(), hoursAhead = 24
       const pathEnd   = new Date(tr.midTime.getTime() + PATH_HALF_MS)
       return {
         ...tr,
-        path:     transitShadowPath(pathStart, pathEnd, target),
-        band:     transitBandPolygon(pathStart, pathEnd, target),
-        discPath: transitDiscPath(pathStart, pathEnd, target, lat, lng, altM),
+        path:     transitShadowPath(pathStart, pathEnd, target, sat),
+        band:     transitBandPolygon(pathStart, pathEnd, target, sat),
+        discPath: transitDiscPath(pathStart, pathEnd, target, lat, lng, altM, sat),
       }
     })
 }
 
-function closeTransit(midTime, minDist, issRange, halfWidth, discR, type) {
+function closeTransit(midTime, minDist, issRange, halfWidth, discR, type, sat) {
   const minSepDeg = Math.asin(Math.min(1, minDist / Math.max(issRange, 1))) / DEG
   const inBand = minDist <= halfWidth
   return {
     type, midTime,
+    satId: sat.id, satName: sat.name,
     minSepDeg:    +minSepDeg.toFixed(4),
     minDistKm:    +minDist.toFixed(3),
     discRadiusDeg: discR,

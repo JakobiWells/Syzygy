@@ -32,7 +32,7 @@ import IssIndicator from './IssIndicator'
 import {
   loadIssTle, loadIssArchive, getIssGroundTrackPhases, issPathGeoJSON,
   getIssPosition, getIssVisibilityRadiusKm, getIssVisibilityStatus,
-  ISS_LAUNCH_MS, getActiveSatellite,
+  ISS_LAUNCH_MS, SATELLITES, satById,
 } from './issEngine'
 import SolarSystem from './SolarSystem'
 import RainViewerLayers from './RainViewerLayers'
@@ -330,31 +330,6 @@ async function fetchCloudForPoint(lat, lng, eclipse) {
 
 // ─── Map layer management ──────────────────────────────────────────────────
 
-const SOURCE_IDS = [
-  'north-pole-source', 'south-pole-source',
-  'umbra-source', 'north-limit-source', 'south-limit-source',
-  'center-line-source', 'shadow-source',
-  'hybrid-annular-source', 'hybrid-total-source', 'penumbra-source',
-  'night-source', 'equator-source', 'tropics-source', 'timezones-source',
-  'iss-path-past-source', 'iss-path-future-source', 'iss-visibility-source',
-  'transit-band-source', 'transit-path-source',
-  'meteor-source',
-  'planetary-transit-source',
-  'city-lights-source',
-]
-const LAYER_IDS = [
-  'north-pole-cap', 'south-pole-cap',
-  'night-fill', 'equator-line', 'tropics-line', 'timezones-line',
-  'iss-path-past-line', 'iss-path-future-line', 'iss-visibility-fill', 'iss-visibility-line',
-  'transit-band-fill', 'transit-band-outline', 'transit-path-line',
-  'meteor-fill',
-  'planetary-transit-fill', 'planetary-transit-outline',
-  'city-lights-raster',
-  'sqm-raster',
-  'umbra-fill', 'north-limit', 'south-limit', 'center-line', 'shadow-fill',
-  'penumbra-fill', 'penumbra-outline', 'hybrid-annular', 'hybrid-total',
-]
-
 // Polar cap GeoJSON — rings of lat/lng sampled densely so the globe chord-rendering
 // stays on the surface. 700 km covers the worst rendering artifacts above ~83° N/S.
 function polarCapGeoJSON(poleLat, radiusKm) {
@@ -459,52 +434,55 @@ function initLayers(map) {
     layout: { visibility: 'none' },
     paint: { 'line-color': '#888', 'line-width': 0.75, 'line-opacity': 0.35, 'line-dasharray': [2, 5] } })
 
-  map.addSource('iss-path-past-source', { type: 'geojson', data: EMPTY_ISS_PATH })
-  map.addLayer({ id: 'iss-path-past-line', type: 'line', source: 'iss-path-past-source',
-    layout: { visibility: 'none' },
-    paint: { 'line-color': '#0284c7', 'line-width': 2.25, 'line-opacity': 0.82 } })
+  // Per-satellite ground track (past/future) + visibility ring, one set each
+  for (const s of SATELLITES) {
+    map.addSource(`sat-${s.id}-past-source`, { type: 'geojson', data: EMPTY_ISS_PATH })
+    map.addLayer({ id: `sat-${s.id}-past-line`, type: 'line', source: `sat-${s.id}-past-source`,
+      layout: { visibility: 'none' },
+      paint: { 'line-color': s.darkColor, 'line-width': 2.25, 'line-opacity': 0.82 } })
 
-  map.addSource('iss-path-future-source', { type: 'geojson', data: EMPTY_ISS_PATH })
-  map.addLayer({ id: 'iss-path-future-line', type: 'line', source: 'iss-path-future-source',
-    layout: { visibility: 'none' },
-    paint: { 'line-color': '#0ea5e9', 'line-width': 2, 'line-opacity': 0.72, 'line-dasharray': [2, 3] } })
+    map.addSource(`sat-${s.id}-future-source`, { type: 'geojson', data: EMPTY_ISS_PATH })
+    map.addLayer({ id: `sat-${s.id}-future-line`, type: 'line', source: `sat-${s.id}-future-source`,
+      layout: { visibility: 'none' },
+      paint: { 'line-color': s.color, 'line-width': 2, 'line-opacity': 0.72, 'line-dasharray': [2, 3] } })
 
-  map.addSource('iss-visibility-source', { type: 'geojson', data: EMPTY_POLY })
-  map.addLayer({ id: 'iss-visibility-fill', type: 'fill', source: 'iss-visibility-source',
-    layout: { visibility: 'none' },
-    paint: {
-      'fill-color': [
-        'match', ['get', 'status'],
-        'visible', '#22c55e',
-        'daylight', '#f59e0b',
-        'not-sunlit', '#64748b',
-        'stale-tle', '#7c3aed',
-        'out-of-range', '#0ea5e9',
-        '#0ea5e9',
-      ],
-      'fill-opacity': [
-        'match', ['get', 'status'],
-        'not-sunlit', 0.07,
-        'visible', 0.16,
-        0.1,
-      ],
-    } })
-  map.addLayer({ id: 'iss-visibility-line', type: 'line', source: 'iss-visibility-source',
-    layout: { visibility: 'none' },
-    paint: {
-      'line-color': [
-        'match', ['get', 'status'],
-        'visible', '#16a34a',
-        'daylight', '#d97706',
-        'not-sunlit', '#64748b',
-        'stale-tle', '#7c3aed',
-        'out-of-range', '#0ea5e9',
-        '#0ea5e9',
-      ],
-      'line-width': 1.5,
-      'line-opacity': 0.65,
-      'line-dasharray': [3, 3],
-    } })
+    map.addSource(`sat-${s.id}-vis-source`, { type: 'geojson', data: EMPTY_POLY })
+    map.addLayer({ id: `sat-${s.id}-vis-fill`, type: 'fill', source: `sat-${s.id}-vis-source`,
+      layout: { visibility: 'none' },
+      paint: {
+        'fill-color': [
+          'match', ['get', 'status'],
+          'visible', '#22c55e',
+          'daylight', '#f59e0b',
+          'not-sunlit', '#64748b',
+          'stale-tle', '#7c3aed',
+          'out-of-range', s.color,
+          s.color,
+        ],
+        'fill-opacity': [
+          'match', ['get', 'status'],
+          'not-sunlit', 0.07,
+          'visible', 0.16,
+          0.1,
+        ],
+      } })
+    map.addLayer({ id: `sat-${s.id}-vis-line`, type: 'line', source: `sat-${s.id}-vis-source`,
+      layout: { visibility: 'none' },
+      paint: {
+        'line-color': [
+          'match', ['get', 'status'],
+          'visible', '#16a34a',
+          'daylight', '#d97706',
+          'not-sunlit', '#64748b',
+          'stale-tle', '#7c3aed',
+          'out-of-range', s.color,
+          s.color,
+        ],
+        'line-width': 1.5,
+        'line-opacity': 0.65,
+        'line-dasharray': [3, 3],
+      } })
+  }
 
   map.addSource('transit-band-source', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
   map.addLayer({ id: 'transit-band-fill', type: 'fill', source: 'transit-band-source',
@@ -639,22 +617,22 @@ function applyLayerVisibility(map, { showPath, showCenter }, eclipseType, isLuna
 // Stable "no meteor" value so derived-selection effects don't retrigger
 const NO_METEOR = { shower: null, peakDate: null }
 
-// Compact key for the satellite visibility ring, bottom-left of the map
+// Minimal one-line key for the satellite visibility rings, bottom-center
 const RING_KEY_ITEMS = [
   ['#22c55e', 'Visible'],
   ['#f59e0b', 'Sky too bright'],
-  ['#94a3b8', "In Earth's shadow"],
-  ['#0ea5e9', 'Below viewing angle'],
+  ['#94a3b8', 'In shadow'],
+  ['#64748b', 'Below horizon'],
 ]
 
-function SatRingKey() {
+function SatRingStrip() {
   return (
-    <div className="sat-ring-key">
-      <div className="sat-ring-key-title">{getActiveSatellite().name} visibility ring</div>
+    <div className="sat-ring-strip">
+      <span className="sat-ring-strip-title">Ring</span>
       {RING_KEY_ITEMS.map(([color, label]) => (
-        <div key={label} className="sat-ring-key-row">
-          <span className="sat-ring-key-dot" style={{ background: color }} />{label}
-        </div>
+        <span key={label} className="sat-ring-strip-item">
+          <span className="sat-ring-strip-dot" style={{ background: color }} />{label}
+        </span>
       ))}
     </div>
   )
@@ -757,9 +735,6 @@ function EclipsePageInner() {
   const [transitPaths, setTransitPaths] = useState(null)
   const [selectedHotel, setSelectedHotel]   = useState(null)
   const [weatherStatus, setWeatherStatus] = useState(null)
-  // Bumped when the active satellite changes so map layers refresh even while
-  // the sim clock is paused
-  const [satNonce, setSatNonce] = useState(0)
 
   // Per-kind selections derived from the focused pin — the map renders the
   // focused event in full; other pins render lightweight footprints. A pin
@@ -1247,59 +1222,50 @@ function EclipsePageInner() {
       ['timezones-line',    overlays.timezones],
       ['city-lights-raster',     overlays.cityLights],
       ['sqm-raster',             overlays.lightPollution],
-      ['iss-path-past-line',     overlays.issPath      && simTime.getTime() >= ISS_LAUNCH_MS],
-      ['iss-path-future-line',   overlays.issPath      && simTime.getTime() >= ISS_LAUNCH_MS],
-      ['iss-visibility-fill',    overlays.issIndicator && simTime.getTime() >= ISS_LAUNCH_MS],
-      ['iss-visibility-line',    overlays.issIndicator && simTime.getTime() >= ISS_LAUNCH_MS],
+      ...SATELLITES.flatMap(s => {
+        const show = overlays[s.overlayKey] && simTime.getTime() >= s.launchMs
+        return [
+          [`sat-${s.id}-past-line`,   show],
+          [`sat-${s.id}-future-line`, show],
+          [`sat-${s.id}-vis-fill`,    show],
+          [`sat-${s.id}-vis-line`,    show],
+        ]
+      }),
     ].forEach(([id, show]) => {
       if (map.current.getLayer(id)) map.current.setLayoutProperty(id, 'visibility', vis(show))
     })
   }, [overlays, mapLoaded, simTime])
 
-  // ─── ISS ground track + visibility footprint ─────────────────────────────
-  // Driven by simTime so the ISS moves with the simulation clock.
-  // When simTime is outside ±14 days of the TLE epoch SGP4 diverges —
-  // we clear the sources rather than show garbage positions.
+  // ─── Satellite ground tracks + visibility footprints ─────────────────────
+  // One track + ring per enabled satellite, driven by simTime.
+  // When simTime is outside the TLE's valid window SGP4 diverges — sources
+  // are cleared rather than showing garbage positions.
 
   useEffect(() => {
     if (!mapLoaded || !map.current) return
 
-    const clearAll = () => {
-      map.current.getSource('iss-path-past-source')?.setData(EMPTY_ISS_PATH)
-      map.current.getSource('iss-path-future-source')?.setData(EMPTY_ISS_PATH)
-      map.current.getSource('iss-visibility-source')?.setData(EMPTY_POLY)
-    }
-
-    if (!overlays.issPath && !overlays.issIndicator) { clearAll(); return }
-    if (simTime.getTime() < ISS_LAUNCH_MS) { clearAll(); return }
-
     let cancelled = false
     const draw = () => {
       if (cancelled || !map.current) return
+      const m = map.current
 
-      // Path colors follow the active satellite
-      const sat = getActiveSatellite()
-      if (map.current.getLayer('iss-path-past-line')) {
-        map.current.setPaintProperty('iss-path-past-line', 'line-color', sat.darkColor)
-      }
-      if (map.current.getLayer('iss-path-future-line')) {
-        map.current.setPaintProperty('iss-path-future-line', 'line-color', sat.color)
-      }
+      for (const sat of SATELLITES) {
+        const enabled = overlays[sat.overlayKey] && simTime.getTime() >= sat.launchMs
+        if (!enabled) {
+          m.getSource(`sat-${sat.id}-past-source`)?.setData(EMPTY_ISS_PATH)
+          m.getSource(`sat-${sat.id}-future-source`)?.setData(EMPTY_ISS_PATH)
+          m.getSource(`sat-${sat.id}-vis-source`)?.setData(EMPTY_POLY)
+          continue
+        }
 
-      if (overlays.issPath) {
-        const phases = getIssGroundTrackPhases(simTime)
-        map.current.getSource('iss-path-past-source')?.setData(issPathGeoJSON(phases.past))
-        map.current.getSource('iss-path-future-source')?.setData(issPathGeoJSON(phases.future))
-      } else {
-        map.current.getSource('iss-path-past-source')?.setData(EMPTY_ISS_PATH)
-        map.current.getSource('iss-path-future-source')?.setData(EMPTY_ISS_PATH)
-      }
+        const phases = getIssGroundTrackPhases(simTime, undefined, sat)
+        m.getSource(`sat-${sat.id}-past-source`)?.setData(issPathGeoJSON(phases.past))
+        m.getSource(`sat-${sat.id}-future-source`)?.setData(issPathGeoJSON(phases.future))
 
-      if (overlays.issIndicator) {
-        const status = getIssVisibilityStatus(simTime, scoreData?.lat, scoreData?.lng)
-        const pos = status.pos ?? getIssPosition(simTime)
+        const status = getIssVisibilityStatus(simTime, scoreData?.lat, scoreData?.lng, 10, sat)
+        const pos = status.pos ?? getIssPosition(simTime, sat)
         if (!pos) {
-          map.current.getSource('iss-visibility-source')?.setData(EMPTY_POLY)
+          m.getSource(`sat-${sat.id}-vis-source`)?.setData(EMPTY_POLY)
         } else {
           const radiusKm = getIssVisibilityRadiusKm(pos.altKm, 10)
           const circle = turf.circle(
@@ -1308,20 +1274,21 @@ function EclipsePageInner() {
             { steps: 64, units: 'kilometers' },
           )
           circle.properties = { status: status.status, label: status.label }
-          map.current.getSource('iss-visibility-source')?.setData(circle)
+          m.getSource(`sat-${sat.id}-vis-source`)?.setData(circle)
         }
-      } else {
-        map.current.getSource('iss-visibility-source')?.setData(EMPTY_POLY)
       }
     }
 
-    // Draw with live TLE as soon as it's ready; redraw once the historical
-    // archive arrives (no-op re-resolve after first load).
-    loadIssTle().then(draw)
+    // Draw once each enabled satellite's TLE is ready; redraw when the ISS
+    // historical archive arrives (no-op re-resolve after first load).
+    for (const sat of SATELLITES) {
+      if (overlays[sat.overlayKey]) loadIssTle({ sat }).then(draw)
+    }
     loadIssArchive().then(draw)
+    draw()
 
     return () => { cancelled = true }
-  }, [simTime, mapLoaded, overlays.issPath, overlays.issIndicator, scoreData?.lat, scoreData?.lng, satNonce])
+  }, [simTime, mapLoaded, overlays.satIss, overlays.satTiangong, overlays.satHst, scoreData?.lat, scoreData?.lng])
 
   // ─── Transit paths ───────────────────────────────────────────────────────
 
@@ -1519,7 +1486,9 @@ function EclipsePageInner() {
       <div ref={mapContainer} className="eclipse-map" />
 {overlays.subSolar  && <SunIndicator  map={mapLoaded ? map.current : null} onFlyTo={([lng, lat]) => map.current?.flyTo({ center: [lng, lat], zoom: 3, duration: 1200 })} />}
       {overlays.subLunar  && <MoonIndicator map={mapLoaded ? map.current : null} onFlyTo={([lng, lat]) => map.current?.flyTo({ center: [lng, lat], zoom: 3, duration: 1200 })} />}
-      {overlays.issIndicator && simTime.getTime() >= ISS_LAUNCH_MS && <IssIndicator key={satNonce} map={mapLoaded ? map.current : null} onFlyTo={([lng, lat]) => map.current?.flyTo({ center: [lng, lat], zoom: 4, duration: 1200 })} lat={scoreData?.lat} lng={scoreData?.lng} />}
+      {SATELLITES.filter(s => overlays[s.overlayKey] && simTime.getTime() >= s.launchMs).map(s => (
+        <IssIndicator key={s.id} sat={s} map={mapLoaded ? map.current : null} onFlyTo={([lng, lat]) => map.current?.flyTo({ center: [lng, lat], zoom: 4, duration: 1200 })} lat={scoreData?.lat} lng={scoreData?.lng} />
+      ))}
       <ErrorBoundary name="SolarSystem"><SolarSystem /></ErrorBoundary>
       {overlays.lightPollution && <BortleLegend />}
       <RainViewerLayers
@@ -1534,9 +1503,11 @@ function EclipsePageInner() {
           mapLoaded={mapLoaded}
           visible={!!overlays.aurora}
         />
-        {overlays.issIndicator && simTime.getTime() >= ISS_LAUNCH_MS && <SatRingKey />}
       </div>
-      <WeatherLegend overlays={overlays} weatherStatus={weatherStatus} />
+      <div className="map-legends-bottom">
+        {SATELLITES.some(s => overlays[s.overlayKey] && simTime.getTime() >= s.launchMs) && <SatRingStrip />}
+        <WeatherLegend overlays={overlays} weatherStatus={weatherStatus} />
+      </div>
       <WindParticles map={mapLoaded ? map.current : null} mapLoaded={mapLoaded} visible={overlays.weatherWindPtcl} />
       <HotelLayer
         map={mapLoaded ? map.current : null}
@@ -1571,7 +1542,7 @@ function EclipsePageInner() {
         scoreData={scoreData}
         onSelectIssPass={pass => {
           setSimTime(pass.start)
-          const pos = getIssPosition(pass.start)
+          const pos = getIssPosition(pass.start, satById(pass.satId))
           if (pos) map.current?.flyTo({ center: [pos.lng, pos.lat], zoom: 3.2, duration: 1000 })
         }}
         onTransitPaths={setTransitPaths}
@@ -1585,7 +1556,6 @@ function EclipsePageInner() {
           map.current?.flyTo({ center: [lng, lat], zoom: 9, duration: 1000 })
           handleLocationSelect(lng, lat)
         }}
-        onSatelliteChange={() => setSatNonce(n => n + 1)}
       />
 
       <LocationPanel

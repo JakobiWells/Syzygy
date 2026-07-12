@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSimTime } from '../time/TimeContext'
-import { loadIssTle, getIssPosition, getIssVisibilityStatus, getActiveSatellite } from './issEngine'
+import { loadIssTle, getIssPosition, getIssVisibilityStatus, DEFAULT_SAT } from './issEngine'
 
 const STATUS_META = {
   visible:      { label: 'Visible',       color: '#22c55e' },
@@ -31,10 +31,10 @@ function fmt(n, dir) {
 
 function backSideOpacity(map, lng, lat) {
   const center = map.getCenter()
-  const φ1 = center.lat * Math.PI / 180
-  const φ2 = lat        * Math.PI / 180
-  const Δλ = (lng - center.lng) * Math.PI / 180
-  const cosD = Math.sin(φ1) * Math.sin(φ2) + Math.cos(φ1) * Math.cos(φ2) * Math.cos(Δλ)
+  const phi1 = center.lat * Math.PI / 180
+  const phi2 = lat        * Math.PI / 180
+  const dLambda = (lng - center.lng) * Math.PI / 180
+  const cosD = Math.sin(phi1) * Math.sin(phi2) + Math.cos(phi1) * Math.cos(phi2) * Math.cos(dLambda)
   return cosD >= 0 ? 1 : Math.max(0.25, 1 + cosD * 3)
 }
 
@@ -76,7 +76,7 @@ function computeScreenPos(map, lng, lat) {
   return { x: cx + nx * t, y: cy + ny * t, angle, onScreen: false }
 }
 
-export default function IssIndicator({ map, onFlyTo, lat, lng }) {
+export default function IssIndicator({ map, onFlyTo, lat, lng, sat = DEFAULT_SAT }) {
   const { simTime } = useSimTime()
   const simTimeRef = useRef(simTime)
   const latRef     = useRef(lat)
@@ -97,28 +97,28 @@ export default function IssIndicator({ map, onFlyTo, lat, lng }) {
 
   useEffect(() => {
     let cancelled = false
-    loadIssTle().then(() => {
+    loadIssTle({ sat }).then(() => {
       if (!cancelled) setReady(true)
     }).catch(() => {
       if (!cancelled) setReady(true)
     })
     return () => { cancelled = true }
-  }, [])
+  }, [sat])
 
   // Stable update fn — reads all time/location values via refs so it never needs to be recreated
   const update = useCallback(() => {
     if (!map) return
-    const iss = getIssPosition(simTimeRef.current)
-    if (!iss) { setPos(null); setStatus(null); return }
+    const satPos = getIssPosition(simTimeRef.current, sat)
+    if (!satPos) { setPos(null); setStatus(null); return }
 
-    const { lng: issLng, lat: issLat, altKm: alt } = iss
-    setCoords([issLng, issLat])
+    const { lng: satLng, lat: satLat, altKm: alt } = satPos
+    setCoords([satLng, satLat])
     setAltKm(alt)
-    setPos(computeScreenPos(map, issLng, issLat))
-    setOpacity(backSideOpacity(map, issLng, issLat))
-    const vis = getIssVisibilityStatus(simTimeRef.current, latRef.current, lngRef.current)
+    setPos(computeScreenPos(map, satLng, satLat))
+    setOpacity(backSideOpacity(map, satLng, satLat))
+    const vis = getIssVisibilityStatus(simTimeRef.current, latRef.current, lngRef.current, 10, sat)
     setStatus(vis.status)
-  }, [map]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [map, sat]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Register map listeners once when map/ready changes
   useEffect(() => {
@@ -158,8 +158,8 @@ export default function IssIndicator({ map, onFlyTo, lat, lng }) {
   if (pos.onScreen) {
     return (
       <div className={`iss-ind${showTip ? ' tip-open' : ''}`} style={{ left: pos.x, top: pos.y, opacity, transform: `translate(-50%, -50%) scale(${scale})`, transition: 'opacity 0.4s, transform 0.4s' }}
-        onClick={handleClick} title={`${getActiveSatellite().name} — click to fly here`}>
-        <IssSVG size={28} color={getActiveSatellite().color} darkColor={getActiveSatellite().darkColor} />
+        onClick={handleClick} title={`${sat.name} — click to fly here`}>
+        <IssSVG size={28} color={sat.color} darkColor={sat.darkColor} />
         {statusMeta && (
           <div className="iss-status-label" style={{ color: statusMeta.color }}>
             <span className="iss-status-dot" style={{ background: statusMeta.color }} />
@@ -175,11 +175,11 @@ export default function IssIndicator({ map, onFlyTo, lat, lng }) {
 
   return (
     <div className="iss-ind iss-ind--edge" style={{ left: pos.x, top: pos.y, opacity, transform: `translate(-50%, -50%) scale(${scale})`, transition: 'opacity 0.4s, transform 0.4s' }}
-      onClick={handleClick} title={`${getActiveSatellite().name} — click to fly here`}>
+      onClick={handleClick} title={`${sat.name} — click to fly here`}>
       <div className="iss-ind-badge" style={{ transform: `rotate(${pos.angle}rad)` }}>
-        <IssSVG size={13} color={getActiveSatellite().color} darkColor={getActiveSatellite().darkColor} />
+        <IssSVG size={13} color={sat.color} darkColor={sat.darkColor} />
         <svg viewBox="0 0 8 14" width="8" height="14" style={{ display: 'block' }}>
-          <polyline points="2,2 6,7 2,12" fill="none" stroke={getActiveSatellite().darkColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <polyline points="2,2 6,7 2,12" fill="none" stroke={sat.darkColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </div>
       {showTip && <div className="sub-point-tip sub-point-tip--iss" style={{ transform: 'none', left: 18, top: -10 }}>{tipLabel}</div>}
