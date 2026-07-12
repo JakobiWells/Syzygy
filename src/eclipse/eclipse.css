@@ -32,51 +32,6 @@
   scrollbar-color: #d0d0cc transparent;
 }
 
-.left-panel-event {
-  padding: 0.6rem 0.75rem 0.55rem;
-  border-bottom: 1px solid #e0e0dc;
-}
-
-.left-panel-event-name {
-  display: block;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: #1a1a1a;
-  line-height: 1.3;
-}
-
-.left-panel-event-date {
-  display: block;
-  font-size: 0.7rem;
-  color: #888;
-  margin-top: 0.1rem;
-}
-
-.left-panel-event-placeholder {
-  font-size: 0.78rem;
-  color: #aaa;
-}
-
-.lp-event-description {
-  padding: 10px 12px 12px;
-  border-bottom: 1px solid #e0e0dc;
-  background: #f4f4f1;
-}
-
-.lp-event-description-title {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #1a1a1a;
-  margin-bottom: 5px;
-  letter-spacing: 0.01em;
-}
-
-.lp-event-description-body {
-  font-size: 0.71rem;
-  color: #444;
-  line-height: 1.55;
-}
-
 .left-panel-hint {
   font-size: 0.75rem;
   color: #999;
@@ -1306,19 +1261,43 @@
   color: #999;
 }
 
+/* Each pin is a dropdown: header row + expandable detail body.
+   Focused (= open) is marked with a soft grey fill and a box outline. */
+.lp-pin {
+  margin: 0 0.4rem 2px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+}
+.lp-pin.is-focused {
+  background: #f0f0ee;
+  border-color: #b5b5b0;
+}
+
 .lp-pin-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0.5rem 0.4rem 0.75rem;
+  gap: 0.4rem;
+  padding: 0.4rem 0.3rem 0.4rem 0.4rem;
   cursor: pointer;
+  border-radius: 4px;
   transition: background 0.07s;
 }
-.lp-pin-row:hover { background: #eaeae8; }
-.lp-pin-row.is-focused {
-  background: #1a1a1a;
-  color: #f9f9f7;
+.lp-pin:not(.is-focused) .lp-pin-row:hover { background: #eaeae8; }
+
+.lp-pin-row--banner {
+  cursor: default;
+  margin: 0 0.4rem;
 }
+
+.lp-pin-caret {
+  font-size: 0.55rem;
+  color: #bbb;
+  flex-shrink: 0;
+  line-height: 1;
+  transform: rotate(-90deg);
+  transition: transform 0.15s;
+}
+.lp-pin-caret.is-open { transform: rotate(0deg); color: #5c5c5c; }
 
 .lp-pin-icon {
   font-size: 0.85rem;
@@ -1350,7 +1329,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.lp-pin-row.is-focused .lp-pin-date { color: #aaa; }
 
 .lp-pin-btn {
   flex-shrink: 0;
@@ -1369,8 +1347,6 @@
   transition: background 0.1s, color 0.1s;
 }
 .lp-pin-btn:hover { background: rgba(0,0,0,0.08); color: #1a1a1a; }
-.lp-pin-row.is-focused .lp-pin-btn { color: #aaa; }
-.lp-pin-row.is-focused .lp-pin-btn:hover { background: rgba(255,255,255,0.15); color: #f9f9f7; }
 
 .lp-pin-eye { font-size: 0.72rem; }
 .lp-pin-eye.is-off { opacity: 0.35; }
@@ -1378,8 +1354,32 @@
 .lp-pin-remove { font-size: 0.9rem; line-height: 1; }
 
 /* Hidden-from-map pins render dimmed in the list */
-.lp-pin-row.is-hidden .lp-pin-icon,
-.lp-pin-row.is-hidden .lp-pin-main { opacity: 0.45; }
+.lp-pin.is-hidden .lp-pin-icon,
+.lp-pin.is-hidden .lp-pin-main { opacity: 0.45; }
+
+/* Expanded detail body */
+.lp-pin-body {
+  padding: 0.15rem 0.6rem 0.55rem 1.55rem;
+}
+
+.lp-pin-body-time {
+  font-size: 0.65rem;
+  color: #888;
+}
+
+.lp-pin-body-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0.45rem 0 0.25rem;
+  letter-spacing: 0.01em;
+}
+
+.lp-pin-body-text {
+  font-size: 0.71rem;
+  color: #444;
+  line-height: 1.55;
+}
 
 /* ── Add event button ────────────────────────────── */
 

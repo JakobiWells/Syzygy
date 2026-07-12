@@ -24,6 +24,20 @@ function Section({ title, children }) {
   )
 }
 
+function fmtTransitBanner(d) {
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}  ${pad(d.getHours())}:${pad(d.getMinutes())} UTC`
+}
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+function fmtPeakUTC(ms) {
+  const d = new Date(ms)
+  const pad = n => String(n).padStart(2, '0')
+  const y = d.getUTCFullYear()
+  return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${y < 0 ? `${-y} BCE` : y} · ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`
+}
+
 // ── Description lookup for a focused pin ───────────────────────────────────
 
 function descriptionFor(evt) {
@@ -60,78 +74,69 @@ export default function LeftPanel({
   onSelectPlace,
 }) {
   const { simTime } = useSimTime()
-  const { pins, focusId, focused, focusPin, removePin, jumpTo, hiddenIds, toggleHidden } = useEventPins()
+  const { pins, focusId, focusPin, removePin, jumpTo, hiddenIds, toggleHidden } = useEventPins()
   const [addOpen, setAddOpen] = useState(false)
   const issActive = simTime.getTime() >= ISS_LAUNCH_MS
 
-  // Event header: ISS transit (location-computed, not a pin) takes precedence
-  let eventLabel = null, eventDate = null
-  if (activeTransit) {
-    eventLabel = `${activeTransit.type === 'solar' ? 'Solar' : 'Lunar'} ISS Transit`
-    const d = activeTransit.midTime
-    const pad = n => String(n).padStart(2, '0')
-    eventDate = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}  ${pad(d.getHours())}:${pad(d.getMinutes())} UTC`
-  } else if (focused) {
-    eventLabel = focused.title
-    eventDate  = focused.dateLabel
-  }
-
-  const description = activeTransit ? null : descriptionFor(focused)
-
   return (
     <div className="left-panel">
-      {/* ── Event header ─────────────────────────────────────────────── */}
-      <div className="left-panel-event">
-        {eventLabel ? (
-          <>
-            <div className="left-panel-event-name">{eventLabel}</div>
-            <div className="left-panel-event-date">{eventDate}</div>
-          </>
-        ) : (
-          <span className="left-panel-event-placeholder">No event selected</span>
-        )}
-      </div>
-
-      {description && (
-        <div className="lp-event-description">
-          <div className="lp-event-description-title">{description.title}</div>
-          <div className="lp-event-description-body">{description.body}</div>
-        </div>
-      )}
-
-      {/* ── Pinned events ────────────────────────────────────────────── */}
+      {/* ── Pinned events (each row is a dropdown; open = focused) ───── */}
       <div className="lp-pins">
-        {pins.length === 0 && (
+        {activeTransit && (
+          <div className="lp-pin-row lp-pin-row--banner">
+            <span className="lp-pin-icon">◍</span>
+            <span className="lp-pin-main">
+              <span className="lp-pin-title">{activeTransit.type === 'solar' ? 'Solar' : 'Lunar'} ISS Transit</span>
+              <span className="lp-pin-date">{fmtTransitBanner(activeTransit.midTime)}</span>
+            </span>
+          </div>
+        )}
+        {pins.length === 0 && !activeTransit && (
           <div className="lp-pins-empty">No events pinned yet — add one below.</div>
         )}
         {pins.map(p => {
-          const hidden = hiddenIds.has(p.id)
+          const hidden  = hiddenIds.has(p.id)
+          const open    = p.id === focusId
+          const desc    = open ? descriptionFor(p) : null
           return (
-            <div
-              key={p.id}
-              className={`lp-pin-row${p.id === focusId ? ' is-focused' : ''}${hidden ? ' is-hidden' : ''}`}
-              onClick={() => focusPin(p.id)}
-            >
-              <span className="lp-pin-icon">{p.icon}</span>
-              <span className="lp-pin-main">
-                <span className="lp-pin-title">{p.title}</span>
-                <span className="lp-pin-date">{p.dateLabel}</span>
-              </span>
-              <button
-                className={`lp-pin-btn lp-pin-eye${hidden ? ' is-off' : ''}`}
-                title={hidden ? 'Show on map' : 'Hide from map'}
-                onClick={e => { e.stopPropagation(); toggleHidden(p.id) }}
-              >👁</button>
-              <button
-                className="lp-pin-btn lp-pin-jump"
-                title="Jump the clock to this event"
-                onClick={e => { e.stopPropagation(); focusPin(p.id); jumpTo(p) }}
-              >▶</button>
-              <button
-                className="lp-pin-btn lp-pin-remove"
-                title="Remove from map"
-                onClick={e => { e.stopPropagation(); removePin(p.id) }}
-              >×</button>
+            <div key={p.id} className={`lp-pin${open ? ' is-focused' : ''}${hidden ? ' is-hidden' : ''}`}>
+              <div
+                className="lp-pin-row"
+                onClick={() => focusPin(open ? null : p.id)}
+              >
+                <span className={`lp-pin-caret${open ? ' is-open' : ''}`}>▾</span>
+                <span className="lp-pin-icon">{p.icon}</span>
+                <span className="lp-pin-main">
+                  <span className="lp-pin-title">{p.title}</span>
+                  <span className="lp-pin-date">{p.dateLabel}</span>
+                </span>
+                <button
+                  className={`lp-pin-btn lp-pin-eye${hidden ? ' is-off' : ''}`}
+                  title={hidden ? 'Show on map' : 'Hide from map'}
+                  onClick={e => { e.stopPropagation(); toggleHidden(p.id) }}
+                >👁</button>
+                <button
+                  className="lp-pin-btn lp-pin-jump"
+                  title="Jump the clock to this event"
+                  onClick={e => { e.stopPropagation(); focusPin(p.id); jumpTo(p) }}
+                >▶</button>
+                <button
+                  className="lp-pin-btn lp-pin-remove"
+                  title="Remove from map"
+                  onClick={e => { e.stopPropagation(); removePin(p.id) }}
+                >×</button>
+              </div>
+              {open && (
+                <div className="lp-pin-body">
+                  <div className="lp-pin-body-time">Peak {fmtPeakUTC(p.peakMs)}</div>
+                  {desc && (
+                    <>
+                      <div className="lp-pin-body-title">{desc.title}</div>
+                      <div className="lp-pin-body-text">{desc.body}</div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           )
         })}

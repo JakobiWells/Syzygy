@@ -75,23 +75,20 @@ const TIMEZONE_DATA = {
 function adaptEclipse(entry) {
   if (!entry) return null
   const cl = entry.centerLine
-  let centerLineCoords = null   // visual display: single segment (avoids antimeridian artifact)
+  let centerLineCoords = null   // longest segment (hybrid split + polar heuristics)
+  let centerLineSegs   = null   // ALL segments — each drawn separately so
+                                // antimeridian/polar-gap paths keep their tails
   let animationCoords  = null   // shadow track: all segments concatenated (full path)
 
   if (cl && cl.length > 0) {
-    if (Array.isArray(cl[0][0])) {
-      // Multi-segment path (antimeridian crossing or polar gap).
-      // Visual: use longest segment only — concatenating draws a diagonal across the map.
-      // Animation: concatenate all so the shadow tracks the full path duration correctly.
-      centerLineCoords = cl.reduce((best, seg) => seg.length > best.length ? seg : best, [])
-      animationCoords  = cl.flat()
-    } else {
-      centerLineCoords = cl
-      animationCoords  = cl
-    }
+    const segs = Array.isArray(cl[0][0]) ? cl : [cl]
+    centerLineSegs   = segs.filter(seg => seg.length >= 2)
+    centerLineCoords = segs.reduce((best, seg) => seg.length > best.length ? seg : best, [])
+    animationCoords  = segs.flat()
   }
   if (centerLineCoords && centerLineCoords.length < 3) centerLineCoords = null
-  if (animationCoords  && animationCoords.length  < 2) animationCoords  = null
+  if (!centerLineSegs?.length) centerLineSegs = null
+  if (animationCoords && animationCoords.length < 2) animationCoords = null
 
   // Use catalog peakFrac directly — the ±30 min search window handles any catalog timing errors.
   // Geography-based override broke polar-crossing eclipses (e.g. 2026) where shadow speed varies.
@@ -124,6 +121,7 @@ function adaptEclipse(entry) {
   return {
     ...entry,
     centerLineCoords,
+    centerLineSegs,
     animationCoords,
     animationTimestamps,
     umbraWidth: widthKm ?? 100,
@@ -177,6 +175,28 @@ function densifyPolarCoords(coords, latThreshold = 70, steps = 12) {
 }
 
 function norm(deg) { return ((deg % 360) + 360) % 360 }
+
+// Smooth one center-line segment into a display Feature.
+// Polar segments are densified instead of splined (bezier oscillates there).
+// turf.bezierSpline can truncate the ends of the line at some resolutions,
+// so the raw endpoints are re-anchored onto the smoothed result.
+function smoothSegFeature(seg) {
+  const isPolar = seg.some(([, lat]) => Math.abs(lat) > 75)
+  const coords = isPolar ? densifyPolarCoords(seg) : seg
+  const rough = turf.lineString(coords)
+  if (isPolar) return rough
+  try {
+    const smooth = turf.bezierSpline(rough, { resolution: 10000, sharpness: 0.85 })
+    const sc = smooth.geometry.coordinates
+    const first = coords[0], last = coords[coords.length - 1]
+    const near = (a, b) => Math.abs(a[0] - b[0]) < 1e-6 && Math.abs(a[1] - b[1]) < 1e-6
+    if (!near(sc[0], first)) sc.unshift(first)
+    if (!near(sc[sc.length - 1], last)) sc.push(last)
+    return smooth
+  } catch {
+    return rough
+  }
+}
 
 function buildCorridorFeatures(centerLine, umbraWidthKm) {
   const half = umbraWidthKm / 2
@@ -656,22 +676,25 @@ function EclipsePageInner() {
   // ─── Adapted eclipse (with old-format fields for map code) ───────────────
 
   const eclipse = useMemo(() => adaptEclipse(selectedEclipse), [selectedEclipse])
-  const hasPath = !!(eclipse?.centerLineCoords?.length && eclipse?.hasValidWidth)
+  const hasPath = !!(eclipse?.centerLineSegs?.length && eclipse?.hasValidWidth)
 
-  const centerLineFeature = useMemo(() => {
+  // Every segment smoothed separately — antimeridian/polar-gap tails included
+  const centerLineSegFeatures = useMemo(() => {
     if (!hasPath) return null
-    const isPolar = eclipse.centerLineCoords.some(([, lat]) => Math.abs(lat) > 75)
-    // Densify near-polar segments so globe-mode chords stay on the sphere surface.
-    const coords = isPolar ? densifyPolarCoords(eclipse.centerLineCoords) : eclipse.centerLineCoords
-    const rough = turf.lineString(coords)
-    // Skip bezierSpline for polar paths (it oscillates wildly through the pole region).
-    if (isPolar) return rough
-    try {
-      return turf.bezierSpline(rough, { resolution: 10000, sharpness: 0.85 })
-    } catch {
-      return rough
-    }
+    return eclipse.centerLineSegs.map(smoothSegFeature)
   }, [selectedEclipse?.cat])
+
+  // Longest segment's feature — used by the hybrid annular/total split logic
+  const centerLineFeature = useMemo(() => {
+    if (!centerLineSegFeatures) return null
+    if (centerLineSegFeatures.length === 1) return centerLineSegFeatures[0]
+    const idx = eclipse.centerLineSegs.findIndex(s => s === eclipse.centerLineCoords)
+    return centerLineSegFeatures[idx >= 0 ? idx : 0]
+  }, [centerLineSegFeatures])
+
+  const centerLineFC = useMemo(() => (
+    centerLineSegFeatures ? { type: 'FeatureCollection', features: centerLineSegFeatures } : null
+  ), [centerLineSegFeatures])
 
   // Full-path line for shadow animation (all segments; no bezier — just raw coords so
   // turf.along distances correspond accurately to the full pathDurationS timing).
@@ -682,19 +705,26 @@ function EclipsePageInner() {
     return turf.lineString(isPolar ? densifyPolarCoords(coords) : coords)
   }, [selectedEclipse?.cat])
 
-  const corridorLineFeature = useMemo(() => {
-    if (!eclipse?.centerLineCoords || !eclipse?.hasValidWidth) return null
-    return centerLineFeature
-  }, [selectedEclipse?.cat, centerLineFeature])
-
+  // Corridor per segment; polygons kept individually for point-in-path checks
   const corridorFeatures = useMemo(() => {
-    if (!corridorLineFeature || !eclipse?.umbraWidth) return null
-    try {
-      return buildCorridorFeatures(corridorLineFeature, eclipse.umbraWidth)
-    } catch {
-      return null
+    if (!centerLineSegFeatures || !eclipse?.hasValidWidth || !eclipse?.umbraWidth) return null
+    const polygons = [], northLines = [], southLines = []
+    for (const segFeature of centerLineSegFeatures) {
+      try {
+        const corr = buildCorridorFeatures(segFeature, eclipse.umbraWidth)
+        polygons.push(corr.polygon)
+        northLines.push(corr.northLine)
+        southLines.push(corr.southLine)
+      } catch { /* skip malformed segment */ }
     }
-  }, [selectedEclipse?.cat, corridorLineFeature])
+    if (!polygons.length) return null
+    return {
+      polygons,
+      polygonFC: { type: 'FeatureCollection', features: polygons },
+      northFC:   { type: 'FeatureCollection', features: northLines },
+      southFC:   { type: 'FeatureCollection', features: southLines },
+    }
+  }, [centerLineSegFeatures])
 
   // Keep refs in sync for animation/click handlers (refs escape stale closures)
   useEffect(() => {
@@ -847,13 +877,13 @@ function EclipsePageInner() {
     const isHybrid  = !isLunar && eclipse.type?.[0] === 'H'
     const isPartial = !isLunar && eclipse.type?.[0] === 'P'
 
-    const poly  = corridorFeatures?.polygon ?? EMPTY_POLY
-    const north = corridorFeatures?.northLine ?? EMPTY_LINE
-    const south = corridorFeatures?.southLine ?? EMPTY_LINE
-    const cl    = centerLineFeature ?? EMPTY_LINE
+    const poly  = corridorFeatures?.polygonFC ?? EMPTY_POLY
+    const north = corridorFeatures?.northFC ?? EMPTY_LINE
+    const south = corridorFeatures?.southFC ?? EMPTY_LINE
+    const cl    = centerLineFC ?? EMPTY_LINE
 
     const startShadow = hasPath
-      ? turf.circle(turf.point(eclipse.centerLineCoords[0]), eclipse.umbraWidth / 2, { steps: 64, units: 'kilometers' })
+      ? turf.circle(turf.point(eclipse.animationCoords[0]), eclipse.umbraWidth / 2, { steps: 64, units: 'kilometers' })
       : EMPTY_CIRCLE
 
     map.current.getSource('umbra-source')?.setData(poly)
@@ -1257,8 +1287,9 @@ function EclipsePageInner() {
 
     // In-path check — use ref to escape stale closure from useCallback
     let inPath = false
-    if (corridorRef.current?.polygon) {
-      inPath = turf.booleanPointInPolygon(turf.point([lng, lat]), corridorRef.current.polygon)
+    if (corridorRef.current?.polygons) {
+      const pt = turf.point([lng, lat])
+      inPath = corridorRef.current.polygons.some(poly => turf.booleanPointInPolygon(pt, poly))
     }
 
     const durationSeconds = inPath ? interpolateDuration(lat, lng, ec.durationAtPoints) : null
@@ -1326,20 +1357,16 @@ function EclipsePageInner() {
       if (e.kind === 'lunar' || !e.centerLine?.length) continue
       const segs = Array.isArray(e.centerLine[0][0]) ? e.centerLine : [e.centerLine]
       for (const seg of segs) {
-        if (seg.length >= 2) {
-          features.push({ type: 'Feature', properties: { id: p.id, part: 'center' }, geometry: { type: 'LineString', coordinates: seg } })
-        }
-      }
-      // Shadow corridor outline along the longest segment
-      if (e.widthKm > 0) {
-        const longest = segs.reduce((best, s) => (s.length > best.length ? s : best), [])
-        if (longest.length >= 3) {
+        if (seg.length < 2) continue
+        features.push({ type: 'Feature', properties: { id: p.id, part: 'center' }, geometry: { type: 'LineString', coordinates: seg } })
+        // Shadow corridor outline for every segment (tails included)
+        if (e.widthKm > 0) {
           try {
-            const corr = buildCorridorFeatures(turf.lineString(longest), e.widthKm)
+            const corr = buildCorridorFeatures(turf.lineString(seg), e.widthKm)
             for (const line of [corr.northLine, corr.southLine]) {
               if (line) features.push({ ...line, properties: { id: p.id, part: 'limit' } })
             }
-          } catch { /* skip malformed path */ }
+          } catch { /* skip malformed segment */ }
         }
       }
     }
