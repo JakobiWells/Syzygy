@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSimTime } from '../time/TimeContext'
-import { loadIssTle, getIssPosition, getIssVisibilityStatus } from './issEngine'
+import { loadIssTle, getIssPosition, getIssVisibilityStatus, getActiveSatellite } from './issEngine'
 
 const STATUS_META = {
   visible:      { label: 'Visible',       color: '#22c55e' },
@@ -158,7 +158,7 @@ export default function IssIndicator({ map, onFlyTo, lat, lng }) {
   if (pos.onScreen) {
     return (
       <div className={`iss-ind${showTip ? ' tip-open' : ''}`} style={{ left: pos.x, top: pos.y, opacity, transform: `translate(-50%, -50%) scale(${scale})`, transition: 'opacity 0.4s, transform 0.4s' }}
-        onClick={handleClick} title="ISS — click to fly here">
+        onClick={handleClick} title={`${getActiveSatellite().name} — click to fly here`}>
         <IssSVG size={28} />
         {statusMeta && (
           <div className="iss-status-label" style={{ color: statusMeta.color }}>
@@ -175,7 +175,7 @@ export default function IssIndicator({ map, onFlyTo, lat, lng }) {
 
   return (
     <div className="iss-ind iss-ind--edge" style={{ left: pos.x, top: pos.y, opacity, transform: `translate(-50%, -50%) scale(${scale})`, transition: 'opacity 0.4s, transform 0.4s' }}
-      onClick={handleClick} title="ISS — click to fly here">
+      onClick={handleClick} title={`${getActiveSatellite().name} — click to fly here`}>
       <div className="iss-ind-badge" style={{ transform: `rotate(${pos.angle}rad)` }}>
         <IssSVG size={13} />
         <svg viewBox="0 0 8 14" width="8" height="14" style={{ display: 'block' }}>

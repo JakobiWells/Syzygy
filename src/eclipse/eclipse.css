@@ -1855,6 +1855,14 @@
   flex-direction: column;
 }
 
+.iss-sat-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.6rem 0.75rem 0.5rem;
+  border-bottom: 1px solid #ececea;
+}
+
 .iss-sat-header {
   display: flex;
   align-items: center;

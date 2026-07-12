@@ -8,7 +8,7 @@ import MoonsPanel from './MoonsPanel'
 import CometsPanel from './CometsPanel'
 import { useSimTime } from '../time/TimeContext'
 import { useEventPins } from './eventPins'
-import { ISS_LAUNCH_MS } from './issEngine'
+import { ISS_LAUNCH_MS, getActiveSatellite } from './issEngine'
 import { ECLIPSE_DESCRIPTIONS, TRANSIT_DESCRIPTIONS, METEOR_DESCRIPTIONS } from './eventDescriptions'
 
 // ── Shared accordion section ───────────────────────────────────────────────
@@ -88,7 +88,7 @@ export default function LeftPanel({
           <div className="lp-pin-row lp-pin-row--banner">
             <span className="lp-pin-icon">◍</span>
             <span className="lp-pin-main">
-              <span className="lp-pin-title">{activeTransit.type === 'solar' ? 'Solar' : 'Lunar'} ISS Transit</span>
+              <span className="lp-pin-title">{activeTransit.type === 'solar' ? 'Solar' : 'Lunar'} {getActiveSatellite().name} Transit</span>
               <span className="lp-pin-date">{fmtTransitBanner(activeTransit.midTime)}</span>
             </span>
           </div>
@@ -163,7 +163,7 @@ export default function LeftPanel({
           </Section>
 
           {issActive && (
-            <Section title="Satellite">
+            <Section title="Satellites">
               <IssSatellitePanel
                 lat={scoreData?.lat}
                 lng={scoreData?.lng}

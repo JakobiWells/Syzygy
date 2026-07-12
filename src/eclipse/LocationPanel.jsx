@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useSimTime } from '../time/TimeContext'
-import { findIssVisiblePasses, findIssSolarTransits, findIssLunarTransits, getIssTleAgeDays, getIssDataSource, loadIssTle, loadIssArchive } from './issEngine'
+import { findIssVisiblePasses, findIssSolarTransits, findIssLunarTransits, getIssTleAgeDays, getIssDataSource, loadIssTle, loadIssArchive, SATELLITES, getActiveSatellite, setActiveSatellite } from './issEngine'
 import SunWidget from './SunWidget'
 import MoonWidget from './MoonWidget'
 import SolarDiscView from './SolarDiscView'
@@ -564,15 +564,40 @@ function IssTransitContent({ lat, lng, onTransitPaths, onSelectTransit, onSelect
 
 export function IssSatellitePanel({ lat, lng, onSelectPass, onTransitPaths, onSelectTransit, onSelectPlace }) {
   const [tab, setTab] = useState('obs')
+  const [satId, setSatId] = useState(() => getActiveSatellite().id)
 
   useEffect(() => {
     if (tab !== 'transit') onTransitPaths?.(null)
   }, [tab])
 
+  function selectSat(id) {
+    if (id === satId) return
+    setActiveSatellite(id)
+    loadIssTle()          // fetch the new satellite's TLE (cached per satellite)
+    onTransitPaths?.(null)
+    setSatId(id)
+  }
+
+  const sat = SATELLITES.find(s => s.id === satId) ?? SATELLITES[0]
+
   return (
     <div className="iss-sat-panel">
+      {/* Satellite picker — the engine tracks one satellite at a time */}
+      <div className="iss-sat-picker">
+        <span className="eclipse-filter-label">Satellite</span>
+        <div className="evt-pill-row">
+          {SATELLITES.map(s => (
+            <button
+              key={s.id}
+              className={`evt-pill${s.id === satId ? ' is-on' : ''}`}
+              onClick={() => selectSat(s.id)}
+            >{s.name}</button>
+          ))}
+        </div>
+      </div>
+
       <div className="iss-sat-header">
-        <span className="iss-sat-name">ISS</span>
+        <span className="iss-sat-name">{sat.name}</span>
         <div className="iss-pill-row">
           <button className={`iss-pill${tab === 'obs' ? ' iss-pill--active' : ''}`}
             onClick={() => setTab('obs')}>Observations</button>
@@ -581,12 +606,13 @@ export function IssSatellitePanel({ lat, lng, onSelectPass, onTransitPaths, onSe
         </div>
       </div>
 
+      {/* key={satId} remounts the tabs so passes/transits recompute for the new satellite */}
       {tab === 'obs' && (lat != null
-        ? <IssObservations lat={lat} lng={lng} onSelectPass={onSelectPass} />
+        ? <IssObservations key={satId} lat={lat} lng={lng} onSelectPass={onSelectPass} />
         : <p className="iss-obs-empty" style={{ padding: '8px 12px' }}>Click a location to see passes.</p>
       )}
       {tab === 'transit' && (lat != null
-        ? <IssTransitContent lat={lat} lng={lng} onTransitPaths={onTransitPaths} onSelectTransit={onSelectTransit} onSelectPlace={onSelectPlace} />
+        ? <IssTransitContent key={satId} lat={lat} lng={lng} onTransitPaths={onTransitPaths} onSelectTransit={onSelectTransit} onSelectPlace={onSelectPlace} />
         : <p className="iss-obs-empty" style={{ padding: '8px 12px' }}>
             Click a location or{' '}
             <button className="iss-transit-geo-inline" onClick={() => {

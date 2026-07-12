@@ -19,22 +19,67 @@ export const ISS_LAUNCH_MS = Date.UTC(1998, 10, 20) // 1998-11-20
 
 const EARTH_R_KM = 6371
 
-// TLE sources tried in order. ivanstanojevic returns JSON; celestrak returns plain text.
-const TLE_SOURCES = [
-  { url: 'https://tle.ivanstanojevic.me/api/tle/25544', format: 'json' },
-  { url: 'https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=TLE', format: 'text' },
+// ── Satellite catalog ─────────────────────────────────────────────────────────
+// The engine tracks one "active" satellite at a time; all exported functions
+// operate on it. discRadiusDeg ≈ apparent angular radius at typical range
+// (drives the transit visibility-band width); baseMag anchors the brightness
+// estimate. Only the ISS has a historical TLE archive.
+
+export const SATELLITES = [
+  {
+    id: 'iss', name: 'ISS', catnr: 25544,
+    launchMs: ISS_LAUNCH_MS,
+    discRadiusDeg: 0.009, baseMag: -1.3,
+  },
+  {
+    id: 'tiangong', name: 'Tiangong', catnr: 48274,
+    launchMs: Date.UTC(2021, 3, 29),   // Tianhe core module
+    discRadiusDeg: 0.004, baseMag: 0.2,
+  },
+  {
+    id: 'hst', name: 'Hubble', catnr: 20580,
+    launchMs: Date.UTC(1990, 3, 24),
+    discRadiusDeg: 0.0015, baseMag: 2.0,
+  },
 ]
+
+let activeSat = SATELLITES[0]
+
+export function getActiveSatellite() { return activeSat }
+
+export function setActiveSatellite(id) {
+  const def = SATELLITES.find(s => s.id === id)
+  if (!def || def.id === activeSat.id) return activeSat
+  activeSat = def
+  dataVersion++
+  return def
+}
+
+// TLE sources tried in order. ivanstanojevic returns JSON; celestrak returns plain text.
+function tleSources(catnr) {
+  return [
+    { url: `https://tle.ivanstanojevic.me/api/tle/${catnr}`, format: 'json' },
+    { url: `https://celestrak.org/NORAD/elements/gp.php?CATNR=${catnr}&FORMAT=TLE`, format: 'text' },
+  ]
+}
 const FETCH_TIMEOUT_MS = 5000
 const CACHE_MS = 6 * 60 * 60 * 1000
 const PASS_SCAN_STEP_SEC = 30
 const PASS_REFINE_STEPS = 12
 
-// Live TLE (current + recent future)
-let liveSatrec = null
-let lastFetch   = 0
-let loadPromise = null
+// Per-satellite live TLE state (current + recent future)
+const satStates = new Map()   // catnr → { liveSatrec, lastFetch, loadPromise }
 
-// Updated: 2026-06-12
+function satState(catnr = activeSat.catnr) {
+  let s = satStates.get(catnr)
+  if (!s) {
+    s = { liveSatrec: null, lastFetch: 0, loadPromise: null }
+    satStates.set(catnr, s)
+  }
+  return s
+}
+
+// Updated: 2026-06-12 (ISS only — other satellites have no offline fallback)
 const FALLBACK_TLE = `ISS (ZARYA)
 1 25544U 98067A   26162.96453450  .00008067  00000+0  15344-3 0  9993
 2 25544  51.6334 325.9414 0004931 175.6343 184.4689 15.49182446570947`
@@ -87,33 +132,39 @@ export function loadIssArchive() {
   return archivePromise
 }
 
-/** Fetch (or refresh) live ISS TLE. Tries multiple sources; falls back to hardcoded TLE.
+/** Fetch (or refresh) the active satellite's live TLE. Tries multiple sources;
+ *  the ISS falls back to a hardcoded TLE if every source fails.
  *  maxCacheMs: how fresh the cached TLE must be before we skip a re-fetch (default 6 h). */
 export function loadIssTle({ maxCacheMs = CACHE_MS } = {}) {
-  loadIssArchive()   // kick off the archive fetch in parallel; never blocks
+  const sat = activeSat
+  if (sat.id === 'iss') loadIssArchive()   // kick off the archive fetch in parallel; never blocks
+  const state = satState(sat.catnr)
   const now = Date.now()
-  if (liveSatrec && now - lastFetch < maxCacheMs) return Promise.resolve(liveSatrec)
-  if (loadPromise) return loadPromise
+  if (state.liveSatrec && now - state.lastFetch < maxCacheMs) return Promise.resolve(state.liveSatrec)
+  if (state.loadPromise) return state.loadPromise
 
-  loadPromise = (async () => {
-    for (const source of TLE_SOURCES) {
+  state.loadPromise = (async () => {
+    for (const source of tleSources(sat.catnr)) {
       try {
-        liveSatrec = await fetchTleSource(source)
-        lastFetch  = Date.now()
-        loadPromise = null
+        state.liveSatrec = await fetchTleSource(source)
+        state.lastFetch  = Date.now()
+        state.loadPromise = null
         dataVersion++
-        return liveSatrec
+        return state.liveSatrec
       } catch (e) {
         console.warn(`[issEngine] TLE source failed (${source.url}):`, e.name === 'AbortError' ? 'timeout' : e.message)
       }
     }
-    console.warn('[issEngine] All TLE sources failed — using hardcoded fallback')
-    if (!liveSatrec) { liveSatrec = parseTleText(FALLBACK_TLE); dataVersion++ }
-    loadPromise = null
-    return liveSatrec
+    if (sat.id === 'iss' && !state.liveSatrec) {
+      console.warn('[issEngine] All TLE sources failed — using hardcoded ISS fallback')
+      state.liveSatrec = parseTleText(FALLBACK_TLE)
+      dataVersion++
+    }
+    state.loadPromise = null
+    return state.liveSatrec
   })()
 
-  return loadPromise
+  return state.loadPromise
 }
 
 // ── Archive TLE lookup ────────────────────────────────────────────────────────
@@ -142,12 +193,13 @@ const LIVE_PREFER_MS = 7 * 24 * 3600 * 1000
 function getSatrecInfo(date) {
   const t   = date.getTime()
   const now = Date.now()
+  const live = satState().liveSatrec
 
   function liveResult() {
-    if (!liveSatrec) return { rec: null, source: null, epochMs: null, ageDays: null }
-    const epochMs = (liveSatrec.jdsatepoch - 2440587.5) * 86400000
+    if (!live) return { rec: null, source: null, epochMs: null, ageDays: null }
+    const epochMs = (live.jdsatepoch - 2440587.5) * 86400000
     return {
-      rec:      liveSatrec,
+      rec:      live,
       source:   t > now ? 'predicted' : 'live',
       epochMs,
       ageDays:  Math.abs(t - epochMs) / 86400000,
@@ -161,7 +213,8 @@ function getSatrecInfo(date) {
     // live TLE not yet loaded — fall through to archive as backup
   }
 
-  if (ARCHIVE.length > 0) {
+  // Historical archive exists for the ISS only
+  if (activeSat.id === 'iss' && ARCHIVE.length > 0) {
     // Binary search for the closest archive entry
     let lo = 0, hi = ARCHIVE.length - 1
     while (lo < hi) {
@@ -267,8 +320,9 @@ export function getIssSubPoint(date) {
 // ── TLE metadata ──────────────────────────────────────────────────────────────
 
 export function getIssTleEpochDate() {
-  if (!liveSatrec?.jdsatepoch) return null
-  return new Date((liveSatrec.jdsatepoch - 2440587.5) * 86400000)
+  const live = satState().liveSatrec
+  if (!live?.jdsatepoch) return null
+  return new Date((live.jdsatepoch - 2440587.5) * 86400000)
 }
 
 export function getIssTleAgeDays(date = new Date()) {
@@ -285,7 +339,7 @@ function recOrbitMinutes(rec) {
 }
 
 export function getIssOrbitMinutes() {
-  return recOrbitMinutes(liveSatrec)
+  return recOrbitMinutes(satState().liveSatrec)
 }
 
 function splitAtAntimeridian(coords) {
@@ -496,7 +550,7 @@ function estimateIssMagnitude(look) {
   if (!look) return null
   const rangeTerm     = 5 * Math.log10(Math.max(look.rangeKm, 1) / 1000)
   const elevationBoost = -0.012 * Math.max(0, look.alt - 10)
-  return -1.3 + rangeTerm + elevationBoost
+  return activeSat.baseMag + rangeTerm + elevationBoost
 }
 
 function samplePassPath(startMs, endMs, lat, lng, samples = 7) {
@@ -637,7 +691,7 @@ function transitShadowPath(startTime, endTime, type) {
 function transitBandPolygon(startTime, endTime, type) {
   const body = type === 'solar' ? A.Body.Sun : A.Body.Moon
   const DISC_R = type === 'solar' ? SUN_R : MOON_R
-  const halfAngRad = (DISC_R + ISS_R) * DEG
+  const halfAngRad = (DISC_R + satAngularRadius()) * DEG
   const a = 6378.137, b = 6356.752, a2 = a * a, b2 = b * b, e2 = (a2 - b2) / a2
 
   const dMs = Math.max(endTime - startTime, 1)
@@ -732,7 +786,8 @@ function ecfDirToAltAz(dir, lat, lng) {
 
 const SUN_R  = 0.267
 const MOON_R = 0.259
-const ISS_R  = 0.009
+// Active satellite's apparent angular radius (deg) — ISS ~0.009°, smaller craft less
+function satAngularRadius() { return activeSat.discRadiusDeg }
 
 // ── Shadow-path transit scanner ───────────────────────────────────────────────
 //
@@ -759,7 +814,7 @@ function findIssTransits(lat, lng, target, { start = new Date(), hoursAhead = 24
 
   const body     = target === 'solar' ? A.Body.Sun  : A.Body.Moon
   const DISC_R   = target === 'solar' ? SUN_R       : MOON_R
-  const halfAngR = (DISC_R + ISS_R) * DEG
+  const halfAngR = (DISC_R + satAngularRadius()) * DEG
 
   const obsEcf = observerEcf(lat, lng, altM)
   const latR = lat * DEG, lngR = lng * DEG
