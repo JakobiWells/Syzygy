@@ -3384,6 +3384,13 @@
     rgba(136, 208, 245, 0.15), #88d0f5 20%, #4aa8e8 45%, #2060c0 65%, #102a80 82%, #7c2ea8 100%);
 }
 
+.wx-clouds-grad {
+  height: 12px;
+  border-radius: 3px;
+  background: linear-gradient(to right,
+    rgba(255,255,255,0.02), rgba(210,214,220,0.45) 40%, rgba(235,238,242,0.8) 75%, #ffffff 100%);
+}
+
 .wx-radar-scale {
   display: flex;
   justify-content: space-between;

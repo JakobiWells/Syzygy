@@ -43,15 +43,9 @@ export const OVERLAY_GROUPS = [
   {
     id: 'weather',
     label: 'Weather',
-    exclusive: true,
     items: [
       { key: 'weatherRadar',    label: 'Radar (live)',   color: '#4ade80' },
-      { key: 'weatherPrecip',   label: 'Precipitation',  color: '#34d399' },
-      { key: 'weatherCloud',    label: 'Cloud cover',    color: '#93c5fd' },
-      { key: 'weatherTemp',     label: 'Temperature',    color: '#f97316' },
-      { key: 'weatherWind',     label: 'Wind speed',     color: '#a78bfa' },
-      { key: 'weatherPressure', label: 'Pressure',       color: '#fb923c' },
-      { key: 'weatherWindPtcl', label: 'Wind particles', color: '#c4b5fd', independent: true },
+      { key: 'weatherWindPtcl', label: 'Wind particles', color: '#c4b5fd' },
     ],
   },
   {
@@ -85,12 +79,7 @@ export const OVERLAY_DEFAULTS = {
   lightPollution: false,
   hotels:          false,
   weatherRadar:    false,
-  weatherPrecip:   false,
-  weatherCloud:    false,
-  weatherTemp:     false,
-  weatherWind:     false,
   weatherWindPtcl: false,
-  weatherPressure: false,
 }
 
 // Keys that turn each other off (stacked rasters are unreadable)
