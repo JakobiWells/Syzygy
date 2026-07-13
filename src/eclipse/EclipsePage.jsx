@@ -484,14 +484,17 @@ function initLayers(map) {
       } })
   }
 
+  // Satellite transit ground paths — solar transits red, lunar blue
+  // (same convention as transit-finder)
+  const transitColor = ['match', ['get', 'transitType'], 'lunar', '#2563eb', '#dc2626']
   map.addSource('transit-band-source', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
   map.addLayer({ id: 'transit-band-fill', type: 'fill', source: 'transit-band-source',
-    paint: { 'fill-color': '#f97316', 'fill-opacity': 0.15 } })
+    paint: { 'fill-color': transitColor, 'fill-opacity': 0.15 } })
   map.addLayer({ id: 'transit-band-outline', type: 'line', source: 'transit-band-source',
-    paint: { 'line-color': '#f97316', 'line-width': 1, 'line-opacity': 0.55, 'line-dasharray': [3, 2] } })
+    paint: { 'line-color': transitColor, 'line-width': 1, 'line-opacity': 0.55, 'line-dasharray': [3, 2] } })
   map.addSource('transit-path-source', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
   map.addLayer({ id: 'transit-path-line', type: 'line', source: 'transit-path-source',
-    paint: { 'line-color': '#f97316', 'line-width': 2, 'line-opacity': 0.9 } })
+    paint: { 'line-color': transitColor, 'line-width': 2, 'line-opacity': 0.9 } })
 
   // Planetary transit daytime visibility zone
   map.addSource('planetary-transit-source', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })

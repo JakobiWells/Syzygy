@@ -411,6 +411,39 @@ function formatSimDate(date) {
   }).format(date)
 }
 
+const KM_TO_MI = 1 / 1.60934
+
+// All the numbers behind a transit prediction (transit-finder style),
+// computed for the location the search was calculated from
+function TransitDetails({ tr, satName }) {
+  const body = tr.type === 'solar' ? 'Sun' : 'Moon'
+  const rows = [
+    ['Center line', `${(tr.minDistKm * KM_TO_MI).toFixed(1)} mi away`],
+    ['Path width', tr.halfWidthKm != null ? `${(tr.halfWidthKm * 2 * KM_TO_MI).toFixed(1)} mi` : '—'],
+    ['Separation', `${(tr.minSepDeg * 60).toFixed(2)}′ from ${body} center`],
+    ['Transit duration', tr.transitDurS != null ? `${tr.transitDurS.toFixed(2)} s` : '— (misses the disc)'],
+    ['Chord length', tr.chordArcmin != null ? `${tr.chordArcmin.toFixed(1)}′` : '—'],
+    [`${satName} distance`, tr.rangeKm != null ? `${tr.rangeKm.toLocaleString()} km` : '—'],
+    [`${satName} size`, tr.angSizeArcsec != null ? `${tr.angSizeArcsec}″` : '—'],
+    ['Angular speed', tr.omegaDegS != null ? `${tr.omegaDegS}°/s` : '—'],
+    [`${body} position`, tr.bodyAlt != null ? `alt ${tr.bodyAlt}° · az ${tr.bodyAz}°` : '—'],
+    ...(tr.type === 'lunar' ? [
+      ['Moon illumination', tr.moonIllum != null ? `${tr.moonIllum}%` : '—'],
+      ['Sun altitude', tr.sunAltDeg != null ? `${tr.sunAltDeg}°` : '—'],
+    ] : []),
+  ]
+  return (
+    <div className="iss-transit-details">
+      {rows.map(([label, value]) => (
+        <div key={label} className="iss-transit-detail-row">
+          <span className="iss-transit-detail-label">{label}</span>
+          <span className="iss-transit-detail-value">{value}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function IssTransitContent({ lat, lng, sat, onTransitPaths, onSelectTransit, anchorMode = 'now' }) {
   const { simTime } = useSimTime()
   const [type, setType] = useState('solar')
@@ -418,6 +451,7 @@ function IssTransitContent({ lat, lng, sat, onTransitPaths, onSelectTransit, anc
   const [radiusInput, setRadiusInput] = useState('10')   // miles willing to travel
   const [altFetching, setAltFetching] = useState(false)
   const [state, setState] = useState({ loading: false, transits: [], loaded: false, calc: null })
+  const [detailIdx, setDetailIdx] = useState(null)
   const cancelRef = useRef(null)
 
   // Auto-fetch elevation from Open-Meteo when lat/lng changes
@@ -567,26 +601,36 @@ function IssTransitContent({ lat, lng, sat, onTransitPaths, onSelectTransit, anc
           <p className="iss-transit-disclaimer">Paths beyond 2 weeks are approximate.</p>
           {transits.map((tr, i) => {
             const beyond = tr.midTime.getTime() > Date.now() + TWO_WEEKS_MS
+            const open = detailIdx === i
             return (
-              <button
-                key={i}
-                className={`iss-transit-row${beyond ? ' iss-transit-row--approx' : ''}`}
-                onClick={() => onSelectTransit?.(tr)}
-                title="Jump to this transit on the map"
-              >
-                <TransitDiscIcon transit={liveDiscPaths?.[i] ? { ...tr, discPath: liveDiscPaths[i] } : tr} />
-                <div className="iss-transit-left">
-                  <span className="iss-obs-date">{formatTransitTime(tr.midTime)}</span>
-                  <span className="iss-obs-path">
-                    {tr.inBand
-                      ? <span className="iss-transit-visible-badge">Visible from here</span>
-                      : <span className="iss-transit-nearby-badge">{tr.minDistKm < 1.6 ? '<1' : Math.round(tr.minDistKm / 1.60934)} mi away</span>
-                    }
-                    {' · '}sep {tr.minSepDeg.toFixed(3)}°
-                  </span>
+              <div key={i} className={`iss-transit-item${beyond ? ' iss-transit-row--approx' : ''}`}>
+                <div className="iss-transit-row">
+                  <button
+                    className="iss-transit-row-main"
+                    onClick={() => onSelectTransit?.(tr)}
+                    title="Jump to this transit on the map"
+                  >
+                    <TransitDiscIcon transit={liveDiscPaths?.[i] ? { ...tr, discPath: liveDiscPaths[i] } : tr} />
+                    <div className="iss-transit-left">
+                      <span className="iss-obs-date">{formatTransitTime(tr.midTime)}</span>
+                      <span className="iss-obs-path">
+                        {tr.inBand
+                          ? <span className="iss-transit-visible-badge">Visible from here</span>
+                          : <span className="iss-transit-nearby-badge">{tr.minDistKm < 1.6 ? '<1' : Math.round(tr.minDistKm / 1.60934)} mi away</span>
+                        }
+                        {' · '}sep {tr.minSepDeg.toFixed(3)}°
+                      </span>
+                    </div>
+                    {beyond && <span className="iss-transit-approx-badge">~</span>}
+                  </button>
+                  <button
+                    className="iss-transit-detail-toggle"
+                    title="Details"
+                    onClick={() => setDetailIdx(open ? null : i)}
+                  >{open ? '▴' : '▾'}</button>
                 </div>
-                {beyond && <span className="iss-transit-approx-badge">~</span>}
-              </button>
+                {open && <TransitDetails tr={tr} satName={calc?.satName ?? 'Satellite'} />}
+              </div>
             )
           })}
         </div>

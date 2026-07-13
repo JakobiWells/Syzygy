@@ -2071,30 +2071,6 @@
   padding: 0 0.6rem 0.35rem;
 }
 
-.iss-transit-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.5rem 0.6rem;
-  border-bottom: 1px solid #e0e0dc;
-  gap: 10px;
-  width: 100%;
-  background: none;
-  border-left: none;
-  border-right: none;
-  border-top: none;
-  text-align: left;
-  cursor: pointer;
-  color: inherit;
-  font: inherit;
-  border-radius: 0;
-  transition: background 0.1s;
-}
-
-.iss-transit-row:hover {
-  background: rgba(0, 0, 0, 0.04);
-}
-
 .iss-transit-row--approx {
   opacity: 0.5;
 }
@@ -2569,27 +2545,61 @@
   margin: 0 0 0.4rem;
 }
 
+.iss-transit-item {
+  border-bottom: 1px solid #e0e0dc;
+}
+.iss-transit-item:last-child { border-bottom: none; }
+
 .iss-transit-row {
+  display: flex;
+  align-items: stretch;
+}
+
+.iss-transit-row-main {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.35rem 0.6rem;
+  padding: 0.35rem 0.2rem 0.35rem 0.6rem;
   gap: 8px;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   background: none;
   border: none;
-  border-bottom: 1px solid #e0e0dc;
   text-align: left;
   cursor: pointer;
   color: inherit;
   font: inherit;
-  border-radius: 0;
   transition: background 0.1s;
 }
+.iss-transit-row-main:hover { background: rgba(0, 0, 0, 0.04); }
 
-.iss-transit-row:hover { background: rgba(0, 0, 0, 0.04); }
+.iss-transit-detail-toggle {
+  flex-shrink: 0;
+  width: 26px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #999;
+  font-size: 0.7rem;
+  transition: background 0.1s, color 0.1s;
+}
+.iss-transit-detail-toggle:hover { background: rgba(0,0,0,0.05); color: #1a1a1a; }
 
-.iss-transit-row:last-child { border-bottom: none; }
+.iss-transit-details {
+  padding: 0.15rem 0.75rem 0.5rem;
+  background: #f4f4f1;
+}
+
+.iss-transit-detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.14rem 0;
+  font-size: 0.68rem;
+}
+
+.iss-transit-detail-label { color: #888; flex-shrink: 0; }
+.iss-transit-detail-value { color: #1a1a1a; text-align: right; }
 
 .iss-transit-left {
   display: flex;

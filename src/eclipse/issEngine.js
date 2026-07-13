@@ -30,21 +30,21 @@ export const SATELLITES = [
   {
     id: 'iss', name: 'ISS', catnr: 25544,
     launchMs: ISS_LAUNCH_MS,
-    discRadiusDeg: 0.009, baseMag: -1.3,
+    discRadiusDeg: 0.009, baseMag: -1.3, sizeM: 109,
     color: '#0ea5e9', darkColor: '#0369a1',
     overlayKey: 'satIss',
   },
   {
     id: 'tiangong', name: 'Tiangong', catnr: 48274,
     launchMs: Date.UTC(2021, 3, 29),   // Tianhe core module
-    discRadiusDeg: 0.004, baseMag: 0.2,
+    discRadiusDeg: 0.004, baseMag: 0.2, sizeM: 55,
     color: '#f472b6', darkColor: '#be185d',
     overlayKey: 'satTiangong',
   },
   {
     id: 'hst', name: 'Hubble', catnr: 20580,
     launchMs: Date.UTC(1990, 3, 24),
-    discRadiusDeg: 0.0015, baseMag: 2.0,
+    discRadiusDeg: 0.0015, baseMag: 2.0, sizeM: 13,
     color: '#a78bfa', darkColor: '#6d28d9',
     overlayKey: 'satHst',
   },
@@ -910,8 +910,69 @@ function findIssTransits(lat, lng, target, { start = new Date(), hoursAhead = 24
         path:     transitShadowPath(pathStart, pathEnd, target, sat),
         band:     transitBandPolygon(pathStart, pathEnd, target, sat),
         discPath: transitDiscPath(pathStart, pathEnd, target, lat, lng, altM, sat),
+        ...transitDetails(tr, target, lat, lng, altM, sat),
       }
     })
+}
+
+// Angle (deg) between two topocentric look directions
+function lookAngleBetween(a, b) {
+  const va = [
+    Math.cos(a.alt * DEG) * Math.sin(a.az * DEG),
+    Math.cos(a.alt * DEG) * Math.cos(a.az * DEG),
+    Math.sin(a.alt * DEG),
+  ]
+  const vb = [
+    Math.cos(b.alt * DEG) * Math.sin(b.az * DEG),
+    Math.cos(b.alt * DEG) * Math.cos(b.az * DEG),
+    Math.sin(b.alt * DEG),
+  ]
+  const dot = Math.max(-1, Math.min(1, va[0]*vb[0] + va[1]*vb[1] + va[2]*vb[2]))
+  return Math.acos(dot) / DEG
+}
+
+// Everything transit-finder shows: the observables behind the prediction.
+function transitDetails(tr, target, lat, lng, altM, sat) {
+  const body = target === 'solar' ? A.Body.Sun : A.Body.Moon
+  const DISC_R = target === 'solar' ? SUN_R : MOON_R
+  const heightKm = (altM || 0) / 1000
+  const mid = tr.midTime
+  const out = {}
+  try {
+    const look = getIssLookAngles(mid, lat, lng, heightKm, sat)
+    if (look) {
+      out.rangeKm = Math.round(look.rangeKm)
+      out.satAlt  = +look.alt.toFixed(1)
+      out.satAz   = +look.az.toFixed(1)
+      // Apparent angular size (diameter) of the satellite, arcseconds
+      out.angSizeArcsec = +(2 * Math.atan((sat.sizeM / 2) / (look.rangeKm * 1000)) / DEG * 3600).toFixed(1)
+    }
+
+    const bodyLook = ecfDirToAltAz(bodyEcefDir(mid, body), lat, lng)
+    out.bodyAlt = +bodyLook.alt.toFixed(1)
+    out.bodyAz  = +bodyLook.az.toFixed(1)
+
+    // Angular velocity across the sky (deg/s) from two samples 1 s apart
+    const lA = getIssLookAngles(new Date(mid.getTime() - 500), lat, lng, heightKm, sat)
+    const lB = getIssLookAngles(new Date(mid.getTime() + 500), lat, lng, heightKm, sat)
+    if (lA && lB) {
+      const omega = lookAngleBetween(lA, lB)
+      out.omegaDegS = +omega.toFixed(3)
+      // If the satellite actually crosses the disc: chord + time inside it
+      const combinedR = DISC_R + (out.angSizeArcsec != null ? out.angSizeArcsec / 7200 : sat.discRadiusDeg)
+      if (tr.minSepDeg < combinedR && omega > 0) {
+        const chordDeg = 2 * Math.sqrt(combinedR ** 2 - tr.minSepDeg ** 2)
+        out.chordArcmin  = +(chordDeg * 60).toFixed(2)
+        out.transitDurS  = +(chordDeg / omega).toFixed(2)
+      }
+    }
+
+    out.sunAltDeg = +(SunCalc.getPosition(mid, lat, lng).altitude * 180 / Math.PI).toFixed(1)
+    if (target === 'lunar') {
+      out.moonIllum = +(A.Illumination(A.Body.Moon, mid).phase_fraction * 100).toFixed(0)
+    }
+  } catch { /* details are best-effort */ }
+  return out
 }
 
 function closeTransit(midTime, minDist, issRange, halfWidth, discR, type, sat) {
@@ -922,6 +983,7 @@ function closeTransit(midTime, minDist, issRange, halfWidth, discR, type, sat) {
     satId: sat.id, satName: sat.name,
     minSepDeg:    +minSepDeg.toFixed(4),
     minDistKm:    +minDist.toFixed(3),
+    halfWidthKm:  +halfWidth.toFixed(2),
     discRadiusDeg: discR,
     inBand,  // true when observer is inside the ~3-5 km visibility band
   }
