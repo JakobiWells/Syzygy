@@ -748,10 +748,12 @@ function transitBandPolygon(startTime, endTime, type, sat) {
   return [...left, ...right.slice().reverse(), left[0]]
 }
 
-// Compute the ISS track across the solar/lunar disc as seen from (lat, lng, altM).
-// Returns an array of {x, y} in disc-radius units — (0,0) = disc center, ±1 = disc edge.
+// Compute the satellite track across the solar/lunar disc as seen from
+// (lat, lng, altM). Returns an array of {x, y} in disc-radius units —
+// (0,0) = disc center, ±1 = disc edge; near-misses land outside ±1.
 // x = rightward (increasing azimuth), y = upward (increasing altitude).
-function transitDiscPath(startTime, endTime, type, lat, lng, altM = 0, sat = DEFAULT_SAT) {
+// Exported so the UI can re-render the view from any observer location.
+export function transitDiscPath(startTime, endTime, type, lat, lng, altM = 0, sat = DEFAULT_SAT) {
   const body = type === 'solar' ? A.Body.Sun : A.Body.Moon
   const DISC_R = type === 'solar' ? SUN_R : MOON_R
   const dMs = Math.max(endTime - startTime, 1)

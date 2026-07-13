@@ -2044,8 +2044,8 @@
   width: calc(100% - 1.3rem);
   margin: 0.1rem 0.65rem 0.65rem;
   padding: 0.45rem 1rem;
-  background: #2563eb;
-  color: #fff;
+  background: #1a1a1a;
+  color: #f9f9f7;
   border: none;
   border-radius: 6px;
   font-size: 0.82rem;
@@ -2054,8 +2054,8 @@
   transition: background 0.15s;
 }
 
-.iss-transit-calc-btn:hover:not(:disabled) { background: #1d4ed8; }
-.iss-transit-calc-btn:disabled { background: #93c5fd; cursor: default; }
+.iss-transit-calc-btn:hover:not(:disabled) { background: #333; }
+.iss-transit-calc-btn:disabled { background: #c9c9c5; cursor: default; }
 
 .iss-transit-disclaimer {
   font-size: 0.67rem;

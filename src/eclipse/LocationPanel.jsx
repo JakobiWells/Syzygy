@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useSimTime } from '../time/TimeContext'
-import { findIssVisiblePasses, findIssSolarTransits, findIssLunarTransits, getIssTleAgeDays, getIssDataSource, loadIssTle, loadIssArchive, SATELLITES, satById } from './issEngine'
+import { findIssVisiblePasses, findIssSolarTransits, findIssLunarTransits, getIssTleAgeDays, getIssDataSource, loadIssTle, loadIssArchive, SATELLITES, satById, transitDiscPath } from './issEngine'
 import SunWidget from './SunWidget'
 import MoonWidget from './MoonWidget'
 import SolarDiscView from './SolarDiscView'
@@ -322,7 +322,15 @@ function TransitDiscIcon({ transit }) {
     const ctx = canvas.getContext('2d')
     const W = canvas.width, H = canvas.height
     const cx = W / 2, cy = H / 2
-    const R = W * 0.42
+
+    // Adaptive zoom: fit the whole satellite path in view. Dead-center
+    // transits render the disc large; the farther the miss, the smaller the
+    // disc appears — an honest "seen from the side" preview of the geometry.
+    const allPts = transit.discPath
+    const maxExtent = allPts?.length
+      ? Math.max(1.15, ...allPts.map(p => Math.hypot(p.x, p.y)))
+      : 1.15
+    const R = Math.max(2.5, (W * 0.46) / maxExtent)
 
     ctx.clearRect(0, 0, W, H)
 
@@ -354,7 +362,7 @@ function TransitDiscIcon({ transit }) {
     const dx = last.x - first.x, dy = last.y - first.y
     const dlen = Math.sqrt(dx * dx + dy * dy)
     if (dlen > 0) {
-      const ex = dx / dlen * 0.35, ey = dy / dlen * 0.35
+      const ex = dx / dlen * 1.2, ey = dy / dlen * 1.2
       ctx.save()
       ctx.setLineDash([2, 2])
       ctx.strokeStyle = transit.type === 'solar' ? 'rgba(0,0,0,0.25)' : 'rgba(0,0,0,0.2)'
@@ -479,6 +487,22 @@ function IssTransitContent({ lat, lng, sat, onTransitPaths, onSelectTransit, anc
   const stale = loaded && calc &&
     (calc.sat.id !== sat.id || calc.lat !== lat || calc.lng !== lng || calc.type !== type)
 
+  // Disc views follow the CURRENTLY selected location, so after calculating
+  // you can click around the map and preview what each transit would look
+  // like from there (dead-center inside the band, a graze at its edge, …)
+  const liveDiscPaths = useMemo(() => {
+    if (!loaded || !calc || lat == null || lng == null) return null
+    const altM = parseFloat(altInput) || 0
+    const HALF = 3_000
+    try {
+      return transits.map(tr => transitDiscPath(
+        new Date(tr.midTime.getTime() - HALF),
+        new Date(tr.midTime.getTime() + HALF),
+        tr.type, lat, lng, altM, calc.sat,
+      ))
+    } catch { return null }
+  }, [loaded, transits, lat, lng, altInput, calc])
+
   return (
     <div className="iss-transit-content">
       {/* Solar / Lunar toggle */}
@@ -550,7 +574,7 @@ function IssTransitContent({ lat, lng, sat, onTransitPaths, onSelectTransit, anc
                 onClick={() => onSelectTransit?.(tr)}
                 title="Jump to this transit on the map"
               >
-                <TransitDiscIcon transit={tr} />
+                <TransitDiscIcon transit={liveDiscPaths?.[i] ? { ...tr, discPath: liveDiscPaths[i] } : tr} />
                 <div className="iss-transit-left">
                   <span className="iss-obs-date">{formatTransitTime(tr.midTime)}</span>
                   <span className="iss-obs-path">
